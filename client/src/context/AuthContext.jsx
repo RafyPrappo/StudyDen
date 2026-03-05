@@ -8,14 +8,30 @@ export function AuthProvider({ children }) {
   const [booting, setBooting] = useState(true);
 
   useEffect(() => {
-    let alive = true;
-    authApi
-      .me()
-      .then((res) => alive && setUser(res?.user || null))
-      .catch(() => alive && setUser(null))
-      .finally(() => alive && setBooting(false));
+    let mounted = true;
+    
+    const checkUser = async () => {
+      try {
+        const res = await authApi.me();
+        if (mounted) {
+          setUser(res?.user || null);
+        }
+      } catch (err) {
+        console.error("Auth check failed:", err);
+        if (mounted) {
+          setUser(null);
+        }
+      } finally {
+        if (mounted) {
+          setBooting(false);
+        }
+      }
+    };
+
+    checkUser();
+
     return () => {
-      alive = false;
+      mounted = false;
     };
   }, []);
 
@@ -26,18 +42,31 @@ export function AuthProvider({ children }) {
       setUser,
       isAdmin: user?.role === "admin",
       login: async (email, password) => {
-        const res = await authApi.login({ email, password });
-        setUser(res.user);
-        return res.user;
+        try {
+          const res = await authApi.login({ email, password });
+          setUser(res.user);
+          return res.user;
+        } catch (err) {
+          throw err;
+        }
       },
       register: async (name, email, password) => {
-        const res = await authApi.register({ name, email, password });
-        setUser(res.user);
-        return res.user;
+        try {
+          const res = await authApi.register({ name, email, password });
+          setUser(res.user);
+          return res.user;
+        } catch (err) {
+          throw err;
+        }
       },
       logout: async () => {
-        await authApi.logout();
-        setUser(null);
+        try {
+          await authApi.logout();
+          setUser(null);
+        } catch (err) {
+          console.error("Logout failed:", err);
+          setUser(null);
+        }
       },
     }),
     [user, booting]

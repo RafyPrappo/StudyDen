@@ -1,6 +1,4 @@
 @import "tailwindcss";
-
-/* modular theme system */
 @import "./styles/tokens.css";
-@import "./styles/animations.css";
 @import "./styles/globals.css";
+@import "./styles/animations.css";

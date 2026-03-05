@@ -1,21 +1,14 @@
 export default function Button({
   children,
-  variant = "primary", // primary | ghost
+  variant = "primary",
   className = "",
   ...props
 }) {
-  const base =
-    "inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold " +
-    "transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-[rgba(var(--ring),0.35)]";
+  const base = "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2";
+  
   const styles = {
-    primary:
-      "text-black/80 shadow-[var(--shadow-soft)] " +
-      "bg-gradient-to-r from-rose-100 via-sky-100 to-amber-100 " +
-      "hover:brightness-95",
-
-    ghost:
-      "text-black/80 border border-black/10 bg-white/70 " +
-      "hover:bg-white hover:border-black/15",
+    primary: "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500",
+    ghost: "bg-transparent text-gray-700 hover:bg-gray-100 border border-gray-200 focus:ring-gray-400"
   };
 
   return (
