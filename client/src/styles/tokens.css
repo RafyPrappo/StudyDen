@@ -1,0 +1,20 @@
+:root{
+  /* LIGHT FUN THEME */
+  --bg: 255 248 240;      /* warm off-white */
+  --card: 255 255 255;
+  --muted: 120 113 108;
+  --text: 28 25 23;
+
+  /* playful warm palette */
+  --primary: 239 68 68;   /* red */
+  --accent: 251 191 36;   /* yellow */
+  --warm: 249 115 22;     /* orange */
+
+  --ring: 239 68 68;
+
+  --r-lg: 20px;
+  --r-xl: 28px;
+
+  --shadow-soft: 0 10px 25px rgba(0,0,0,.12);
+  --shadow-glow: 0 0 30px rgba(239,68,68,.18);
+}

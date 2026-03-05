@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables - FIXED
+.env
+.env.local
+.env.production
+.env.development
+
+# Logs
+*.log
+npm-debug.log*
+
+# Database
+*.db
+
+# IDE
+.vscode/
+.idea/
+.DS_Store

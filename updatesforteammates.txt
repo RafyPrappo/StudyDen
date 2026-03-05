@@ -1,0 +1,2 @@
+1. Changed the theme to a lighter tone.
+2. implemented auth with jwt token and db implementation (MongoDB).
