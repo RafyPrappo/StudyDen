@@ -1,11 +1,11 @@
-import express from "express";
-import requireAuth from "../middleware/auth.middleware.js";
-import {
+const express = require("express");
+const requireAuth = require("../middleware/auth.middleware");
+const {
   register,
   login,
   me,
   logout,
-} from "../controllers/auth.controller.js";
+} = require("../controllers/auth.controller");
 
 const router = express.Router();
 
@@ -14,4 +14,4 @@ router.post("/login", login);
 router.get("/me", requireAuth, me);
 router.post("/logout", logout);
 
-export default router;
+module.exports = router;

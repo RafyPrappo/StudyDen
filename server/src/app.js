@@ -1,23 +1,40 @@
-import express from "express";
-import cors from "cors";
-import cookieParser from "cookie-parser";
-import authRoutes from "./routes/auth.routes.js";
-import adminRoutes from "./routes/admin.routes.js";
+const express = require("express");
+const cors = require("cors");
+const cookieParser = require("cookie-parser");
+const path = require("path");
+
+const authRoutes = require("./routes/auth.routes");
+const pointsRoutes = require("./routes/points.routes");
+const leaderboardRoutes = require("./routes/leaderboard.routes");
+const eventRoutes = require("./routes/event.routes");
+const userRoutes = require("./routes/user.routes");
+const adminRoutes = require("./routes/admin.routes");
+const { notFound, errorHandler } = require("./middleware/error.middleware");
 
 const app = express();
 
-// Middlewares
 app.use(
   cors({
-    origin: true,
+    origin: "http://localhost:5173",
     credentials: true,
   })
 );
 app.use(express.json());
 app.use(cookieParser());
+app.use("/uploads", express.static("uploads"));
 
-// Routes
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true, message: "Server running" });
+});
+
 app.use("/api/auth", authRoutes);
+app.use("/api/points", pointsRoutes);
+app.use("/api/leaderboard", leaderboardRoutes);
+app.use("/api/events", eventRoutes);
+app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
 
-export default app;
+app.use(notFound);
+app.use(errorHandler);
+
+module.exports = app;

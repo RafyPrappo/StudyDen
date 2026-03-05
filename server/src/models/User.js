@@ -1,12 +1,27 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, minlength: 2, maxlength: 60 },
     email: { type: String, required: true, unique: true, trim: true, lowercase: true },
     passwordHash: { type: String, required: true },
+    profilePhoto: { type: String, default: "" },
+    role: { 
+      type: String, 
+      enum: ["user", "admin"], 
+      default: "user" 
+    },
+    points: { type: Number, default: 0 },
+    badges: [{ type: String }],
+    noShowCount: { type: Number, default: 0 },
+    lastPenalty: { type: Date },
+    eventsDitched: { type: Number, default: 0 },
+    dedicatedCount: { type: Number, default: 0 },
+    joinedEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: "Event" }],
+    completedEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: "Event" }],
+    createdAt: { type: Date, default: Date.now }
   },
   { timestamps: true }
 );
 
-export default mongoose.model("User", userSchema);
+module.exports = mongoose.model("User", userSchema);

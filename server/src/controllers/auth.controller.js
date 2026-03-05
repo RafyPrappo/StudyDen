@@ -1,6 +1,6 @@
-import bcrypt from "bcryptjs";
-import User from "../models/User.js";
-import { signToken } from "../utils/jwt.js";
+const bcrypt = require("bcryptjs");
+const User = require("../models/User");
+const { signToken } = require("../utils/jwt");
 
 function setTokenCookie(res, token) {
   res.cookie("token", token, {
@@ -8,10 +8,11 @@ function setTokenCookie(res, token) {
     sameSite: "lax",
     secure: false,
     maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: "/"
   });
 }
 
-export const register = async (req, res, next) => {
+exports.register = async (req, res, next) => {
   try {
     const { name, email, password } = req.body || {};
 
@@ -32,12 +33,12 @@ export const register = async (req, res, next) => {
       name: name.trim(),
       email: normalizedEmail,
       passwordHash,
-      role: "user", // Default role
+      role: "user",
       points: 0,
       badges: []
     });
 
-    const token = signToken({ id: user._id.toString(), email: user.email });
+    const token = signToken({ id: user._id.toString(), email: user.email, role: user.role });
     setTokenCookie(res, token);
 
     res.status(201).json({
@@ -55,7 +56,7 @@ export const register = async (req, res, next) => {
   }
 };
 
-export const login = async (req, res, next) => {
+exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body || {};
     if (!email || !password) return res.status(400).json({ message: "email and password are required" });
@@ -67,7 +68,7 @@ export const login = async (req, res, next) => {
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ message: "Invalid credentials" });
 
-    const token = signToken({ id: user._id.toString(), email: user.email });
+    const token = signToken({ id: user._id.toString(), email: user.email, role: user.role });
     setTokenCookie(res, token);
 
     res.json({
@@ -85,7 +86,7 @@ export const login = async (req, res, next) => {
   }
 };
 
-export const me = async (req, res, next) => {
+exports.me = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id).select("_id name email role points badges");
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -95,7 +96,12 @@ export const me = async (req, res, next) => {
   }
 };
 
-export const logout = async (req, res) => {
-  res.clearCookie("token", { httpOnly: true, sameSite: "lax", secure: false });
+exports.logout = async (req, res) => {
+  res.clearCookie("token", { 
+    httpOnly: true, 
+    sameSite: "lax", 
+    secure: false,
+    path: "/"
+  });
   res.json({ ok: true });
 };

@@ -1,14 +1,16 @@
-import jwt from "jsonwebtoken";
+const jwt = require("jsonwebtoken");
 
-export function signToken(payload) {
+function signToken(payload) {
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new Error("JWT_SECRET missing in environment");
   const expiresIn = process.env.JWT_EXPIRES_IN || "7d";
   return jwt.sign(payload, secret, { expiresIn });
 }
 
-export function verifyToken(token) {
+function verifyToken(token) {
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new Error("JWT_SECRET missing in environment");
   return jwt.verify(token, secret);
 }
+
+module.exports = { signToken, verifyToken };

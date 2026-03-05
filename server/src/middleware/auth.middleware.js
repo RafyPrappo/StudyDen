@@ -1,18 +1,36 @@
-import { verifyToken } from "../utils/jwt.js";
+const { verifyToken } = require("../utils/jwt");
+const User = require("../models/User");
 
-export default function requireAuth(req, res, next) {
-  const cookieToken = req.cookies?.token;
-  const header = req.headers.authorization || "";
-  const headerToken = header.startsWith("Bearer ") ? header.slice(7) : null;
-
-  const token = cookieToken || headerToken;
-  if (!token) return res.status(401).json({ message: "Unauthorized" });
+module.exports = async function requireAuth(req, res, next) {
+  const token = req.cookies?.token;
+  
+  if (!token) {
+    return res.status(401).json({ message: "Unauthorized - No token" });
+  }
 
   try {
     const decoded = verifyToken(token);
-    req.user = decoded;
+    
+    const user = await User.findById(decoded.id).select("_id email role");
+    if (!user) {
+      res.clearCookie("token", { 
+        httpOnly: true, 
+        sameSite: "lax", 
+        secure: false,
+        path: "/"
+      });
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    req.user = { id: user._id.toString(), email: user.email, role: user.role };
     next();
   } catch (e) {
+    res.clearCookie("token", { 
+      httpOnly: true, 
+      sameSite: "lax", 
+      secure: false,
+      path: "/"
+    });
     return res.status(401).json({ message: "Invalid token" });
   }
-}
+};
