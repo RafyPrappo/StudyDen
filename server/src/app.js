@@ -9,6 +9,7 @@ const leaderboardRoutes = require("./routes/leaderboard.routes");
 const eventRoutes = require("./routes/event.routes");
 const userRoutes = require("./routes/user.routes");
 const adminRoutes = require("./routes/admin.routes");
+const spotRoutes = require("./routes/spot.routes");
 const { notFound, errorHandler } = require("./middleware/error.middleware");
 
 const app = express();
@@ -31,6 +32,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/points", pointsRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
 app.use("/api/events", eventRoutes);
+app.use("/api/spots", spotRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
 

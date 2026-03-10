@@ -1,0 +1,24 @@
+import { api } from "./apiClient";
+
+export const spotApi = {
+  getSpots: (params = {}) => {
+    const queryParams = new URLSearchParams();
+
+    if (params.type && params.type !== "All") queryParams.append("type", params.type);
+    if (params.search) queryParams.append("search", params.search);
+    if (params.amenity && params.amenity !== "All") queryParams.append("amenity", params.amenity);
+    if (params.page) queryParams.append("page", params.page);
+    if (params.limit) queryParams.append("limit", params.limit);
+
+    const queryString = queryParams.toString();
+    return api.get(`/api/spots${queryString ? `?${queryString}` : ""}`);
+  },
+
+  getSpot: (id) => api.get(`/api/spots/${id}`),
+
+  createSpot: (data) => api.post("/api/spots", data, { credentials: "include" }),
+
+  getMySpots: () => api.get("/api/spots/my-spots", { credentials: "include" }),
+
+  deleteSpot: (id) => api.del(`/api/spots/${id}`, { credentials: "include" }),
+};
