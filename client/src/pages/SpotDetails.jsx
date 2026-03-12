@@ -21,6 +21,9 @@ import {
   Trash2,
   Loader2,
   CalendarDays,
+  Clock3,
+  Volume2,
+  UserCheck,
 } from "lucide-react";
 
 const amenityIcons = {
@@ -39,6 +42,22 @@ const typeStyles = {
   Private: "bg-purple-100 text-purple-700 border-purple-200",
 };
 
+const CROWD_LEVELS = [
+  { value: 1, label: "Very Low" },
+  { value: 2, label: "Low" },
+  { value: 3, label: "Moderate" },
+  { value: 4, label: "Busy" },
+  { value: 5, label: "Packed" },
+];
+
+const NOISE_LEVELS = [
+  { value: 1, label: "Silent" },
+  { value: 2, label: "Quiet" },
+  { value: 3, label: "Moderate" },
+  { value: 4, label: "Noisy" },
+  { value: 5, label: "Very Noisy" },
+];
+
 export default function SpotDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -49,16 +68,32 @@ export default function SpotDetails() {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
 
+  const [showCheckInForm, setShowCheckInForm] = useState(false);
+  const [submittingCheckIn, setSubmittingCheckIn] = useState(false);
+  const [checkInError, setCheckInError] = useState("");
+  const [crowdLevel, setCrowdLevel] = useState(3);
+  const [noiseLevel, setNoiseLevel] = useState(3);
+
+  const [myLatestCheckIn, setMyLatestCheckIn] = useState(null);
+  const [latestCheckIn, setLatestCheckIn] = useState(null);
+
   useEffect(() => {
-    fetchSpot();
+    fetchSpotDetails();
   }, [id]);
 
-  const fetchSpot = async () => {
+  const fetchSpotDetails = async () => {
     try {
       setLoading(true);
       setError("");
-      const data = await spotApi.getSpot(id);
-      setSpot(data.spot);
+
+      const [spotData, checkInData] = await Promise.all([
+        spotApi.getSpot(id),
+        spotApi.getCheckInStatus(id),
+      ]);
+
+      setSpot(spotData.spot);
+      setMyLatestCheckIn(checkInData.myLatestCheckIn || null);
+      setLatestCheckIn(checkInData.latestCheckIn || null);
     } catch (err) {
       setError(err.message || "Failed to load study spot");
       console.error(err);
@@ -83,6 +118,41 @@ export default function SpotDetails() {
       alert(err.message || "Failed to delete spot");
       setDeleting(false);
     }
+  };
+
+  const handleCheckIn = async (e) => {
+    e.preventDefault();
+
+    setSubmittingCheckIn(true);
+    setCheckInError("");
+
+    try {
+      const data = await spotApi.createCheckIn(id, {
+        crowdLevel,
+        noiseLevel,
+      });
+
+      setMyLatestCheckIn(data.checkIn);
+      setLatestCheckIn(data.checkIn);
+      setShowCheckInForm(false);
+    } catch (err) {
+      console.error("Failed to check in:", err);
+      setCheckInError(err.message || "Failed to check in");
+    } finally {
+      setSubmittingCheckIn(false);
+    }
+  };
+
+  const formatDateTime = (dateValue) => {
+    if (!dateValue) return "N/A";
+
+    return new Date(dateValue).toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
   };
 
   if (loading) {
@@ -217,15 +287,32 @@ export default function SpotDetails() {
             )}
           </div>
 
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3">
+              Check In
+            </h2>
+
+            <div className="flex flex-wrap gap-3">
+              <Button onClick={() => setShowCheckInForm((prev) => !prev)}>
+                <UserCheck size={16} />
+                {myLatestCheckIn ? "Update Check-In" : "Check In"}
+              </Button>
+
+              {myLatestCheckIn && (
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-green-50 text-green-700 border border-green-200 text-sm">
+                  <Clock3 size={16} />
+                  Last checked in at {formatDateTime(myLatestCheckIn.checkedInAt)}
+                </div>
+              )}
+            </div>
+          </div>
+
           <div>
             <h2 className="text-lg font-semibold text-gray-900 mb-3">
               Posted by
             </h2>
 
-            <Link
-              to={`/profile/${spot.postedBy?._id}`}
-              className="block"
-            >
+            <Link to={`/profile/${spot.postedBy?._id}`} className="block">
               <div className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 overflow-hidden flex-shrink-0">
                   {spot.postedBy?.profilePhoto ? (
@@ -269,6 +356,175 @@ export default function SpotDetails() {
               </div>
             </Link>
           </div>
+        </Card>
+
+        {showCheckInForm && (
+          <Card className="p-6 mt-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              {myLatestCheckIn ? "Update your check-in" : "Check in to this study spot"}
+            </h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Share the current crowd and noise level to help other students.
+            </p>
+
+            {checkInError && (
+              <div className="mb-5 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                {checkInError}
+              </div>
+            )}
+
+            <form onSubmit={handleCheckIn} className="space-y-6">
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 mb-3">
+                  Crowd level
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {CROWD_LEVELS.map((level) => (
+                    <button
+                      key={level.value}
+                      type="button"
+                      onClick={() => setCrowdLevel(level.value)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                        crowdLevel === level.value
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      {level.value} - {level.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 mb-3">
+                  Noise level
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {NOISE_LEVELS.map((level) => (
+                    <button
+                      key={level.value}
+                      type="button"
+                      onClick={() => setNoiseLevel(level.value)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                        noiseLevel === level.value
+                          ? "bg-slate-800 text-white"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      {level.value} - {level.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <Button type="submit" disabled={submittingCheckIn}>
+                  {submittingCheckIn ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck size={16} />
+                      Submit Check-In
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setShowCheckInForm(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </Card>
+        )}
+
+        {myLatestCheckIn && (
+          <Card className="p-6 mt-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              My Check-In
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                  <Clock3 size={16} />
+                  Checked in at
+                </div>
+                <p className="text-sm font-medium text-gray-900">
+                  {formatDateTime(myLatestCheckIn.checkedInAt)}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                  <Users size={16} />
+                  Crowd level
+                </div>
+                <p className="text-sm font-medium text-gray-900">
+                  {myLatestCheckIn.crowdLevel} - {myLatestCheckIn.crowdLabel}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                  <Volume2 size={16} />
+                  Noise level
+                </div>
+                <p className="text-sm font-medium text-gray-900">
+                  {myLatestCheckIn.noiseLevel} - {myLatestCheckIn.noiseLabel}
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        <Card className="p-6 mt-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            Latest Activity
+          </h2>
+
+          {latestCheckIn ? (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <div className="text-sm text-gray-500 mb-2">Latest check-in</div>
+                <p className="text-sm font-medium text-gray-900">
+                  {formatDateTime(latestCheckIn.checkedInAt)}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <div className="text-sm text-gray-500 mb-2">Checked in by</div>
+                <p className="text-sm font-medium text-gray-900">
+                  {latestCheckIn.user?.name || "Unknown"}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <div className="text-sm text-gray-500 mb-2">Crowd level</div>
+                <p className="text-sm font-medium text-gray-900">
+                  {latestCheckIn.crowdLevel} - {latestCheckIn.crowdLabel}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <div className="text-sm text-gray-500 mb-2">Noise level</div>
+                <p className="text-sm font-medium text-gray-900">
+                  {latestCheckIn.noiseLevel} - {latestCheckIn.noiseLabel}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-gray-500">
+              No one has checked in to this study spot yet.
+            </p>
+          )}
         </Card>
       </div>
     </Container>
