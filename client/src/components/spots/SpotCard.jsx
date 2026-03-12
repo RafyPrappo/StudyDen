@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
+import { Link } from "react-router-dom";
 import {
   MapPin,
   Wifi,
@@ -85,16 +86,20 @@ export default function SpotCard({ spot, onUpdate }) {
       </div>
 
       <div className="flex-shrink-0">
-        <h3 className="text-lg font-semibold text-gray-900 line-clamp-2 min-h-[3.5rem]">
-          {spot.title}
-        </h3>
+        <Link to={`/spots/${spot._id}`} className="block">
+          <h3 className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors line-clamp-2 min-h-[3.5rem]">
+            {spot.title}
+          </h3>
+        </Link>
       </div>
 
       <div className="mt-2 mb-4">
-        <div className="flex items-start gap-2 text-sm text-gray-600">
-          <MapPin size={16} className="text-gray-400 flex-shrink-0 mt-0.5" />
-          <span className="line-clamp-2">{spot.address}</span>
-        </div>
+        <Link to={`/spots/${spot._id}`} className="block">
+          <div className="flex items-start gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors">
+            <MapPin size={16} className="text-gray-400 flex-shrink-0 mt-0.5" />
+            <span className="line-clamp-2">{spot.address}</span>
+          </div>
+        </Link>
       </div>
 
       <p className="text-sm text-gray-600 line-clamp-4 min-h-[6rem]">
