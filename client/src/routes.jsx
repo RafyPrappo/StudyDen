@@ -10,6 +10,7 @@ import Profile from "./pages/Profile";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
+import SpotDetails from "./pages/SpotDetails";
 
 import RequireAuth from "./components/auth/RequireAuth";
 
@@ -27,6 +28,14 @@ const router = createBrowserRouter([
         element: (
           <RequireAuth>
             <Spots />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "spots/:id",
+        element: (
+          <RequireAuth>
+            <SpotDetails />
           </RequireAuth>
         ),
       },
