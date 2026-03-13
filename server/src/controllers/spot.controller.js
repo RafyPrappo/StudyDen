@@ -1,3 +1,113 @@
+const SpotReview = require("../models/SpotReview");
+exports.createOrUpdateSpotReview = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { rating, reviewText = "", availableAmenities = [] } = req.body;
+
+    const parsedRating = parseInt(rating, 10);
+
+    if (![1, 2, 3, 4, 5].includes(parsedRating)) {
+      return res.status(400).json({
+        message: "Rating must be between 1 and 5",
+      });
+    }
+
+    const spot = await Spot.findById(id);
+    if (!spot) {
+      return res.status(404).json({ message: "Spot not found" });
+    }
+
+    const hasCheckedIn = await SpotCheckIn.exists({
+      spot: id,
+      user: req.user.id,
+    });
+
+    if (!hasCheckedIn) {
+      return res.status(403).json({
+        message: "You must check in at this spot before leaving a review",
+      });
+    }
+
+    const normalizedAmenities = Array.isArray(availableAmenities)
+      ? availableAmenities.filter((item) => ALLOWED_AMENITIES.includes(item))
+      : [];
+
+    const review = await SpotReview.findOneAndUpdate(
+      { spot: id, user: req.user.id },
+      {
+        spot: id,
+        user: req.user.id,
+        rating: parsedRating,
+        reviewText,
+        availableAmenities: normalizedAmenities,
+      },
+      {
+        new: true,
+        upsert: true,
+        runValidators: true,
+        setDefaultsOnInsert: true,
+      }
+    ).populate("user", "name email points badges profilePhoto");
+
+    res.status(200).json({
+      review,
+      message: "Review saved successfully",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getSpotReviews = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const spot = await Spot.findById(id);
+    if (!spot) {
+      return res.status(404).json({ message: "Spot not found" });
+    }
+
+    const reviews = await SpotReview.find({ spot: id })
+      .populate("user", "name email points badges profilePhoto")
+      .sort({ createdAt: -1 });
+
+    const totalReviews = reviews.length;
+    const averageRating =
+      totalReviews > 0
+        ? Number(
+            (
+              reviews.reduce((sum, item) => sum + item.rating, 0) / totalReviews
+            ).toFixed(1)
+          )
+        : 0;
+
+    res.json({
+      reviews,
+      summary: {
+        averageRating,
+        totalReviews,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getMySpotReview = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const review = await SpotReview.findOne({
+      spot: id,
+      user: req.user.id,
+    }).populate("user", "name email points badges profilePhoto");
+
+    res.json({ review });
+  } catch (err) {
+    next(err);
+  }
+};
+
 const SpotCheckIn = require("../models/SpotCheckIn");
 const CROWD_LABELS = {
   1: "Very Low",

@@ -8,6 +8,9 @@ const {
   deleteSpot,
   createSpotCheckIn,
   getSpotCheckInStatus,
+  createOrUpdateSpotReview,
+  getSpotReviews,
+  getMySpotReview,
 } = require("../controllers/spot.controller");
 
 const router = express.Router();
@@ -19,5 +22,8 @@ router.post("/:id/check-in", requireAuth, createSpotCheckIn);
 router.get("/:id", getSpot);
 router.post("/", requireAuth, createSpot);
 router.delete("/:id", requireAuth, deleteSpot);
+router.get("/:id/reviews", getSpotReviews);
+router.get("/:id/my-review", requireAuth, getMySpotReview);
+router.post("/:id/reviews", requireAuth, createOrUpdateSpotReview);
 
 module.exports = router;

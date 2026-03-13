@@ -27,4 +27,12 @@ export const spotApi = {
 
   getCheckInStatus: (id) =>
     api.get(`/api/spots/${id}/check-in-status`, { credentials: "include" }),
+  
+  getReviews: (id) => api.get(`/api/spots/${id}/reviews`),
+
+  getMyReview: (id) =>
+    api.get(`/api/spots/${id}/my-review`, { credentials: "include" }),
+
+  saveReview: (id, data) =>
+    api.post(`/api/spots/${id}/reviews`, data, { credentials: "include" }),
 };
