@@ -11,7 +11,7 @@ try {
   console.error("Failed to set DNS servers:", err.message);
 }
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 9120;
 
 // MongoDB Connection
 const connectDB = async () => {
