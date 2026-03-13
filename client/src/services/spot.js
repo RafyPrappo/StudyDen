@@ -21,4 +21,10 @@ export const spotApi = {
   getMySpots: () => api.get("/api/spots/my-spots", { credentials: "include" }),
 
   deleteSpot: (id) => api.del(`/api/spots/${id}`, { credentials: "include" }),
+
+  createCheckIn: (id, data) =>
+    api.post(`/api/spots/${id}/check-in`, data, { credentials: "include" }),
+
+  getCheckInStatus: (id) =>
+    api.get(`/api/spots/${id}/check-in-status`, { credentials: "include" }),
 };

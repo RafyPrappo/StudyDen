@@ -1,3 +1,20 @@
+const SpotCheckIn = require("../models/SpotCheckIn");
+const CROWD_LABELS = {
+  1: "Very Low",
+  2: "Low",
+  3: "Moderate",
+  4: "Busy",
+  5: "Packed",
+};
+
+const NOISE_LABELS = {
+  1: "Silent",
+  2: "Quiet",
+  3: "Moderate",
+  4: "Noisy",
+  5: "Very Noisy",
+};
+
 const Spot = require("../models/Spot");
 
 const ALLOWED_AMENITIES = [
@@ -159,6 +176,105 @@ exports.deleteSpot = async (req, res, next) => {
     await Spot.findByIdAndDelete(id);
 
     res.json({ message: "Spot deleted successfully" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.createSpotCheckIn = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { crowdLevel, noiseLevel } = req.body;
+
+    const parsedCrowdLevel = parseInt(crowdLevel, 10);
+    const parsedNoiseLevel = parseInt(noiseLevel, 10);
+
+    if (
+      ![1, 2, 3, 4, 5].includes(parsedCrowdLevel) ||
+      ![1, 2, 3, 4, 5].includes(parsedNoiseLevel)
+    ) {
+      return res.status(400).json({
+        message: "Crowd level and noise level must be between 1 and 5",
+      });
+    }
+
+    const spot = await Spot.findById(id);
+    if (!spot) {
+      return res.status(404).json({ message: "Spot not found" });
+    }
+
+    // Simple anti-spam: prevent repeated check-ins to the same spot within 10 minutes
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+    const recentCheckIn = await SpotCheckIn.findOne({
+      spot: id,
+      user: req.user.id,
+      checkedInAt: { $gte: tenMinutesAgo },
+    }).sort({ checkedInAt: -1 });
+
+    if (recentCheckIn) {
+      return res.status(429).json({
+        message: "You already checked in recently. Please wait a bit before checking in again.",
+      });
+    }
+
+    const checkIn = await SpotCheckIn.create({
+      spot: id,
+      user: req.user.id,
+      crowdLevel: parsedCrowdLevel,
+      noiseLevel: parsedNoiseLevel,
+    });
+
+    await checkIn.populate("user", "name email points badges profilePhoto");
+
+    res.status(201).json({
+      checkIn: {
+        ...checkIn.toObject(),
+        crowdLabel: CROWD_LABELS[checkIn.crowdLevel],
+        noiseLabel: NOISE_LABELS[checkIn.noiseLevel],
+      },
+      message: "Checked in successfully",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getSpotCheckInStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const spot = await Spot.findById(id);
+    if (!spot) {
+      return res.status(404).json({ message: "Spot not found" });
+    }
+
+    const latestCheckIn = await SpotCheckIn.findOne({ spot: id })
+      .populate("user", "name email points badges profilePhoto")
+      .sort({ checkedInAt: -1 });
+
+    const myLatestCheckIn = await SpotCheckIn.findOne({
+      spot: id,
+      user: req.user.id,
+    })
+      .populate("user", "name email points badges profilePhoto")
+      .sort({ checkedInAt: -1 });
+
+    res.json({
+      latestCheckIn: latestCheckIn
+        ? {
+            ...latestCheckIn.toObject(),
+            crowdLabel: CROWD_LABELS[latestCheckIn.crowdLevel],
+            noiseLabel: NOISE_LABELS[latestCheckIn.noiseLevel],
+          }
+        : null,
+      myLatestCheckIn: myLatestCheckIn
+        ? {
+            ...myLatestCheckIn.toObject(),
+            crowdLabel: CROWD_LABELS[myLatestCheckIn.crowdLevel],
+            noiseLabel: NOISE_LABELS[myLatestCheckIn.noiseLevel],
+          }
+        : null,
+    });
   } catch (err) {
     next(err);
   }
