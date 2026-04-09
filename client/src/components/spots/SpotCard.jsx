@@ -17,6 +17,7 @@ import {
   Medal,
   Trash2,
   Loader2,
+  Star,
 } from "lucide-react";
 import { spotApi } from "../../services/spot";
 
@@ -60,7 +61,8 @@ export default function SpotCard({ spot, onUpdate }) {
   };
 
   return (
-    <Card className="p-5 hover:shadow-lg transition-all duration-200 border border-gray-100 hover:border-blue-200 min-h-[420px] flex flex-col">      <div className="flex items-start justify-between mb-3">
+    <Card className="p-5 hover:shadow-lg transition-all duration-200 border border-gray-100 hover:border-blue-200 min-h-[420px] flex flex-col">
+      <div className="flex items-start justify-between mb-3">
         <span
           className={`px-3 py-1 rounded-full text-xs font-medium border ${
             typeStyles[spot.type] || typeStyles.Public
@@ -100,6 +102,18 @@ export default function SpotCard({ spot, onUpdate }) {
             <span className="line-clamp-2">{spot.address}</span>
           </div>
         </Link>
+      </div>
+
+      <div className="mb-4 flex items-center gap-2 text-sm">
+        <div className="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-700 px-3 py-1.5 border border-amber-100">
+          <Star size={14} fill="currentColor" />
+          <span className="font-medium">
+            {spot.averageRating?.toFixed(1) || "0.0"}
+          </span>
+        </div>
+        <span className="text-gray-500 text-xs">
+          ({spot.totalReviews || 0} review{spot.totalReviews === 1 ? "" : "s"})
+        </span>
       </div>
 
       <p className="text-sm text-gray-600 line-clamp-4 min-h-[6rem]">
