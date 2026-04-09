@@ -192,11 +192,19 @@ exports.createSpot = async (req, res, next) => {
 
 exports.getSpots = async (req, res, next) => {
   try {
-    const { type, search, amenity, page = 1, limit = 9 } = req.query;
+    const {
+      type,
+      search,
+      amenity,
+      minRating,
+      page = 1,
+      limit = 9,
+    } = req.query;
 
     const parsedPage = parseInt(page, 10);
     const parsedLimit = parseInt(limit, 10);
-    const skip = (parsedPage - 1) * parsedLimit;
+    const parsedMinRating =
+      minRating && minRating !== "All" ? parseFloat(minRating) : null;
 
     const filter = { isApproved: true };
 
@@ -216,21 +224,74 @@ exports.getSpots = async (req, res, next) => {
       filter.amenities = amenity;
     }
 
-    const spots = await Spot.find(filter)
+    // Get all matching spots first
+    const matchingSpots = await Spot.find(filter)
       .populate("postedBy", "name email points badges profilePhoto")
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parsedLimit);
+      .lean();
 
-    const total = await Spot.countDocuments(filter);
+    const spotIds = matchingSpots.map((spot) => spot._id);
+
+    // Aggregate ratings for those spots
+    const ratingStats = await SpotReview.aggregate([
+      {
+        $match: {
+          spot: { $in: spotIds },
+        },
+      },
+      {
+        $group: {
+          _id: "$spot",
+          averageRating: { $avg: "$rating" },
+          totalReviews: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const ratingMap = new Map(
+      ratingStats.map((item) => [
+        item._id.toString(),
+        {
+          averageRating: Number(item.averageRating.toFixed(1)),
+          totalReviews: item.totalReviews,
+        },
+      ])
+    );
+
+    // Attach rating info to each spot
+    let enrichedSpots = matchingSpots.map((spot) => {
+      const ratingInfo = ratingMap.get(spot._id.toString()) || {
+        averageRating: 0,
+        totalReviews: 0,
+      };
+
+      return {
+        ...spot,
+        averageRating: ratingInfo.averageRating,
+        totalReviews: ratingInfo.totalReviews,
+      };
+    });
+
+    // Apply minimum rating filter if requested
+    if (parsedMinRating !== null && !Number.isNaN(parsedMinRating)) {
+      enrichedSpots = enrichedSpots.filter(
+        (spot) => spot.averageRating >= parsedMinRating
+      );
+    }
+
+    const total = enrichedSpots.length;
+    const pages = Math.ceil(total / parsedLimit) || 1;
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    const paginatedSpots = enrichedSpots.slice(skip, skip + parsedLimit);
 
     res.json({
-      spots,
+      spots: paginatedSpots,
       pagination: {
         total,
         page: parsedPage,
         limit: parsedLimit,
-        pages: Math.ceil(total / parsedLimit),
+        pages,
       },
     });
   } catch (err) {
