@@ -4,7 +4,10 @@ const requireAdmin = require("../middleware/admin.middleware");
 const User = require("../models/User");
 
 const router = express.Router();
+const {getNearbyPlaces, importPlace,} = require("../controllers/admin.controller");
 
+router.get("/places/nearby", requireAuth, requireAdmin, getNearbyPlaces);
+router.post("/places/import", requireAuth, requireAdmin, importPlace);
 router.get("/dashboard", requireAuth, requireAdmin, (req, res) => {
   res.json({ 
     message: "Welcome to admin dashboard",
