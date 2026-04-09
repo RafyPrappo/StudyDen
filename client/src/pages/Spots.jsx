@@ -5,9 +5,10 @@ import Button from "../components/ui/Button";
 import SpotCard from "../components/spots/SpotCard";
 import CreateSpotModal from "../components/spots/CreateSpotModal";
 import { spotApi } from "../services/spot";
-import { Search, Loader2, Plus } from "lucide-react";
+import { Search, Loader2, Plus, Star } from "lucide-react";
 
 const TYPES = ["All", "Public", "Private"];
+
 const AMENITY_FILTERS = [
   "All",
   "WiFi",
@@ -20,12 +21,21 @@ const AMENITY_FILTERS = [
   "Group Seating",
 ];
 
+const RATING_FILTERS = [
+  { label: "All", value: "All" },
+  { label: "4+ Stars", value: "4" },
+  { label: "3+ Stars", value: "3" },
+  { label: "2+ Stars", value: "2" },
+  { label: "1+ Stars", value: "1" },
+];
+
 export default function Spots() {
   const location = useLocation();
   const [spots, setSpots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState("All");
   const [selectedAmenity, setSelectedAmenity] = useState("All");
+  const [selectedRating, setSelectedRating] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [page, setPage] = useState(1);
@@ -47,6 +57,7 @@ export default function Spots() {
       const data = await spotApi.getSpots({
         type: selectedType,
         amenity: selectedAmenity,
+        minRating: selectedRating,
         search: searchQuery,
         page,
         limit: 9,
@@ -64,7 +75,7 @@ export default function Spots() {
 
   useEffect(() => {
     fetchSpots();
-  }, [selectedType, selectedAmenity, page]);
+  }, [selectedType, selectedAmenity, selectedRating, page]);
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -135,7 +146,7 @@ export default function Spots() {
           ))}
         </div>
 
-        <div className="flex justify-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="flex justify-center gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
           {AMENITY_FILTERS.map((amenity) => (
             <button
               key={amenity}
@@ -150,6 +161,26 @@ export default function Spots() {
               }`}
             >
               {amenity}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex justify-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          {RATING_FILTERS.map((rating) => (
+            <button
+              key={rating.value}
+              onClick={() => {
+                setSelectedRating(rating.value);
+                setPage(1);
+              }}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                selectedRating === rating.value
+                  ? "bg-amber-500 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              <Star size={14} />
+              {rating.label}
             </button>
           ))}
         </div>
