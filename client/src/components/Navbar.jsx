@@ -3,13 +3,25 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import Button from "./ui/Button";
 import { userApi } from "../services/user";
-import { Home, MapPin, Calendar, Trophy, User, LogOut, LogIn, UserPlus, Plus, Bell } from "lucide-react";
+import {
+  Home,
+  MapPin,
+  Calendar,
+  Trophy,
+  User,
+  LogOut,
+  LogIn,
+  UserPlus,
+  Plus,
+  Shield,
+} from "lucide-react";
 
-const linkBase = "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-gray-600 hover:text-blue-600 hover:bg-blue-50";
+const linkBase =
+  "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-gray-600 hover:text-blue-600 hover:bg-blue-50";
 const active = "bg-blue-50 text-blue-600";
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const nav = useNavigate();
   const location = useLocation();
   const [loggingOut, setLoggingOut] = useState(false);
@@ -17,13 +29,12 @@ export default function Navbar() {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   useEffect(() => {
-    setShowCreateButton(location.pathname === '/events');
+    setShowCreateButton(location.pathname === "/events");
   }, [location.pathname]);
 
   useEffect(() => {
     if (user) {
       fetchUnreadCount();
-      // Poll for new notifications every 30 seconds
       const interval = setInterval(fetchUnreadCount, 30000);
       return () => clearInterval(interval);
     }
@@ -62,14 +73,15 @@ export default function Navbar() {
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center font-bold text-white">
             SD
           </div>
-          <span className="text-lg font-semibold text-gray-900">
-            StudyDen
-          </span>
+          <span className="text-lg font-semibold text-gray-900">StudyDen</span>
         </NavLink>
 
         <nav className="flex items-center">
-          {/* Navigation links container */}
-          <div className={`flex items-center gap-1 transition-all duration-500 ease-in-out ${showCreateButton ? 'mr-8' : 'mr-0'}`}>
+          <div
+            className={`flex items-center gap-1 transition-all duration-500 ease-in-out ${
+              showCreateButton ? "mr-8" : "mr-0"
+            }`}
+          >
             <NavLink
               to="/"
               className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}
@@ -108,7 +120,9 @@ export default function Navbar() {
             {user && (
               <NavLink
                 to="/profile"
-                className={({ isActive }) => `${linkBase} ${isActive ? active : ""} relative`}
+                className={({ isActive }) =>
+                  `${linkBase} ${isActive ? active : ""} relative`
+                }
               >
                 <User size={18} />
                 <span className="hidden sm:inline">Profile</span>
@@ -116,15 +130,24 @@ export default function Navbar() {
                   <span className="absolute -top-1 -right-1 flex h-4 w-4">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 text-white text-xs font-bold items-center justify-center">
-                      {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                      {unreadNotifications > 9 ? "9+" : unreadNotifications}
                     </span>
                   </span>
                 )}
               </NavLink>
             )}
+
+            {user && isAdmin && (
+              <NavLink
+                to="/admin"
+                className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}
+              >
+                <Shield size={18} />
+                <span className="hidden sm:inline">Admin</span>
+              </NavLink>
+            )}
           </div>
 
-          {/* Divider */}
           <div className="w-px h-6 bg-gray-200 mx-2" />
 
           {!user ? (
@@ -146,21 +169,20 @@ export default function Navbar() {
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              {/* Create Event Button */}
-              <div 
+              <div
                 className={`transition-all duration-500 ease-in-out ${
-                  showCreateButton 
-                    ? 'opacity-100 translate-x-0 w-auto ml-0' 
-                    : 'opacity-0 translate-x-4 w-0 -ml-4'
+                  showCreateButton
+                    ? "opacity-100 translate-x-0 w-auto ml-0"
+                    : "opacity-0 translate-x-4 w-0 -ml-4"
                 }`}
-                style={{ 
-                  transition: 'all 500ms cubic-bezier(0.4, 0, 0.2, 1)',
-                  overflow: 'hidden',
-                  whiteSpace: 'nowrap'
+                style={{
+                  transition: "all 500ms cubic-bezier(0.4, 0, 0.2, 1)",
+                  overflow: "hidden",
+                  whiteSpace: "nowrap",
                 }}
               >
-                <Button 
-                  variant="primary" 
+                <Button
+                  variant="primary"
                   onClick={() => nav("/events?create=true")}
                   className="whitespace-nowrap flex items-center gap-2 animate-fall-from-sky"
                 >
@@ -168,11 +190,10 @@ export default function Navbar() {
                   <span>Create event</span>
                 </Button>
               </div>
-              
-              {/* Logout Button */}
-              <Button 
-                variant="ghost" 
-                onClick={handleLogout} 
+
+              <Button
+                variant="ghost"
+                onClick={handleLogout}
                 disabled={loggingOut}
                 className="flex items-center gap-2"
               >
@@ -186,8 +207,7 @@ export default function Navbar() {
         </nav>
       </div>
 
-      {/* Animation keyframes */}
-      <style jsx>{`
+      <style>{`
         @keyframes fallFromSky {
           0% {
             transform: translateY(-30px) rotate(-2deg);
@@ -205,7 +225,7 @@ export default function Navbar() {
             opacity: 1;
           }
         }
-        
+
         .animate-fall-from-sky {
           animation: fallFromSky 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
         }
