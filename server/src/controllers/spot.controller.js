@@ -1,4 +1,8 @@
 const SpotReview = require("../models/SpotReview");
+const { PointsCalculator } = require("../utils/pointsCalculator"); // Prappo
+const Notification = require("../models/Notification"); // Prappo
+
+
 exports.createOrUpdateSpotReview = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -126,6 +130,7 @@ const NOISE_LABELS = {
 };
 
 const Spot = require("../models/Spot");
+const User = require("../models/User");
 
 const ALLOWED_AMENITIES = [
   "WiFi",
@@ -184,10 +189,33 @@ exports.createSpot = async (req, res, next) => {
 
     await spot.populate("postedBy", "name email points badges profilePhoto");
 
+  // Prappo: Award points for creating a spot ->
+  const user = await User.findById(req.user.id);
+  const pointsEarned = PointsCalculator.getPointsForAction('ADD_SPOT');
+  user.points += pointsEarned;
+
+  // New badge chek
+  const newBadges = PointsCalculator.checkNewBadges(user);
+  if (newBadges.length > 0) {
+    user.badges = [...(user.badges || []), ...newBadges];
+  }
+  await user.save();
+
+  // send notification
+  await Notification.create({
+    user: user._id,
+    type: "points_earned",
+    title: "Points Earned",
+    message: `You earned ${pointsEarned} points for adding a new spot!`
+  });
+
+
     res.status(201).json({ spot });
   } catch (err) {
     next(err);
   }
+
+
 };
 
 exports.getSpots = async (req, res, next) => {
@@ -344,12 +372,27 @@ exports.deleteSpot = async (req, res, next) => {
       return res.status(403).json({ message: "Forbidden" });
     }
 
+  // Prappo: Deduct points for deleting a spot ->
+  const originalPoster = await User.findById(spot.postedBy);
+  const pointsToDeduct = PointsCalculator.getPointsForAction('REMOVE_SPOT');
+  originalPoster.points = Math.max(0, originalPoster.points + pointsToDeduct);
+  await originalPoster.save();
+
+  // send notification to original poster
+  await Notification.create({
+    user: originalPoster._id,
+    type: "points_earned",
+    title: "Points Deducted",
+    message: `You lost ${-pointsToDeduct} points for deleting a spot.`
+  });
+
     await Spot.findByIdAndDelete(id);
 
     res.json({ message: "Spot deleted successfully" });
   } catch (err) {
     next(err);
   }
+
 };
 
 exports.createSpotCheckIn = async (req, res, next) => {

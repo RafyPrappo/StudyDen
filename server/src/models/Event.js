@@ -101,7 +101,11 @@ const eventSchema = new mongoose.Schema(
     },
     cancelledAt: { type: Date },
     pointsAwarded: { type: Boolean, default: false },
-    hostPointsAwarded: { type: Boolean, default: false }
+    hostPointsAwarded: { type: Boolean, default: false },
+
+    userCalendarEvents: { type: Map,of: String,default: {}},
+    calendarLink: { type: String, default: '' },
+    syncedToCalendar: { type: Boolean, default: false }
   },
   { timestamps: true }
 );
