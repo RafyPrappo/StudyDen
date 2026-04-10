@@ -21,7 +21,7 @@ app.use(
   })
 );
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // THIS IS NEEDED for x-www-form-urlencoded
+app.use(express.urlencoded({ extended: true })); // THIS IS NEEDED for x-www-form-urlencoded why?
 app.use(cookieParser());
 app.use("/uploads", express.static("uploads"));
 

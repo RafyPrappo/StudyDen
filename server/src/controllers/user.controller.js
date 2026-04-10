@@ -275,3 +275,99 @@ exports.getCompletedEvents = async (req, res, next) => {
     next(err);
   }
 };
+exports.getMyPreferences = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select("preferences");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({
+      preferences: {
+        amenities: user.preferences?.amenities || [],
+        crowdLevel: user.preferences?.crowdLevel || null,
+        noiseLevel: user.preferences?.noiseLevel || null,
+        minRating: user.preferences?.minRating || null,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.updateMyPreferences = async (req, res, next) => {
+  try {
+    const {
+      amenities = [],
+      crowdLevel = null,
+      noiseLevel = null,
+      minRating = null,
+    } = req.body;
+
+    const ALLOWED_AMENITIES = [
+      "WiFi",
+      "Charging Points",
+      "AC",
+      "Quiet Zone",
+      "Snacks",
+      "Parking",
+      "Washroom",
+      "Group Seating",
+    ];
+
+    const normalizedAmenities = Array.isArray(amenities)
+      ? amenities.filter((item) => ALLOWED_AMENITIES.includes(item))
+      : [];
+
+    const parsedCrowdLevel =
+      crowdLevel === null || crowdLevel === "" ? null : parseInt(crowdLevel, 10);
+
+    const parsedNoiseLevel =
+      noiseLevel === null || noiseLevel === "" ? null : parseInt(noiseLevel, 10);
+
+    const parsedMinRating =
+      minRating === null || minRating === "" ? null : parseInt(minRating, 10);
+
+    if (
+      parsedCrowdLevel !== null &&
+      ![1, 2, 3, 4, 5].includes(parsedCrowdLevel)
+    ) {
+      return res.status(400).json({ message: "Crowd level must be between 1 and 5" });
+    }
+
+    if (
+      parsedNoiseLevel !== null &&
+      ![1, 2, 3, 4, 5].includes(parsedNoiseLevel)
+    ) {
+      return res.status(400).json({ message: "Noise level must be between 1 and 5" });
+    }
+
+    if (
+      parsedMinRating !== null &&
+      ![1, 2, 3, 4, 5].includes(parsedMinRating)
+    ) {
+      return res.status(400).json({ message: "Minimum rating must be between 1 and 5" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      {
+        preferences: {
+          amenities: normalizedAmenities,
+          crowdLevel: parsedCrowdLevel,
+          noiseLevel: parsedNoiseLevel,
+          minRating: parsedMinRating,
+        },
+      },
+      { new: true, runValidators: true }
+    ).select("preferences");
+
+    res.json({
+      message: "Preferences saved successfully",
+      preferences: user.preferences,
+    });
+  } catch (err) {
+    next(err);
+  }
+};

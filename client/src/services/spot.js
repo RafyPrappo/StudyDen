@@ -14,6 +14,18 @@ export const spotApi = {
     const queryString = queryParams.toString();
     return api.get(`/api/spots${queryString ? `?${queryString}` : ""}`);
   },
+  getMyPreferredSpots: (params = {}) => {
+    const queryParams = new URLSearchParams();
+
+    if (params.page) queryParams.append("page", params.page);
+    if (params.limit) queryParams.append("limit", params.limit);
+
+    const queryString = queryParams.toString();
+    return api.get(`/api/spots/my-preferences${queryString ? `?${queryString}` : ""}`, {
+      credentials: "include",
+    });
+  },
+
 
   getSpot: (id) => api.get(`/api/spots/${id}`),
 

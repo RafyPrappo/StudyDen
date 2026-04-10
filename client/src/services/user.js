@@ -26,5 +26,9 @@ export const userApi = {
 
   getDitchStreak: () => api.get("/api/users/ditch-streak", { credentials: "include" }),
   
-  getCompletedEvents: (page = 1) => api.get(`/api/users/completed-events?page=${page}`, { credentials: "include" })
+  getCompletedEvents: (page = 1) => api.get(`/api/users/completed-events?page=${page}`, { credentials: "include" }),
+  getPreferences: () => api.get("/api/users/preferences", { credentials: "include" }),
+
+  updatePreferences: (data) =>
+    api.put("/api/users/preferences", data, { credentials: "include" }),
 };
