@@ -1,3 +1,4 @@
+const User = require("../models/User");
 const SpotReview = require("../models/SpotReview");
 exports.createOrUpdateSpotReview = async (req, res, next) => {
   try {
@@ -445,6 +446,161 @@ exports.getSpotCheckInStatus = async (req, res, next) => {
             noiseLabel: NOISE_LABELS[myLatestCheckIn.noiseLevel],
           }
         : null,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getSpotsByMyPreferences = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select("preferences");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const preferences = user.preferences || {};
+    const preferredAmenities = Array.isArray(preferences.amenities)
+      ? preferences.amenities
+      : [];
+    const preferredCrowdLevel = preferences.crowdLevel ?? null;
+    const preferredNoiseLevel = preferences.noiseLevel ?? null;
+    const preferredMinRating = preferences.minRating ?? null;
+
+    const { page = 1, limit = 9 } = req.query;
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+
+    const spots = await Spot.find({ isApproved: true })
+      .populate("postedBy", "name email points badges profilePhoto")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const spotIds = spots.map((spot) => spot._id);
+
+    const ratingStats = await SpotReview.aggregate([
+      {
+        $match: {
+          spot: { $in: spotIds },
+        },
+      },
+      {
+        $group: {
+          _id: "$spot",
+          averageRating: { $avg: "$rating" },
+          totalReviews: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const ratingMap = new Map(
+      ratingStats.map((item) => [
+        item._id.toString(),
+        {
+          averageRating: Number(item.averageRating.toFixed(1)),
+          totalReviews: item.totalReviews,
+        },
+      ])
+    );
+
+    const latestCheckIns = await SpotCheckIn.aggregate([
+      {
+        $match: {
+          spot: { $in: spotIds },
+        },
+      },
+      {
+        $sort: {
+          checkedInAt: -1,
+        },
+      },
+      {
+        $group: {
+          _id: "$spot",
+          crowdLevel: { $first: "$crowdLevel" },
+          noiseLevel: { $first: "$noiseLevel" },
+          checkedInAt: { $first: "$checkedInAt" },
+        },
+      },
+    ]);
+
+    const checkInMap = new Map(
+      latestCheckIns.map((item) => [
+        item._id.toString(),
+        {
+          crowdLevel: item.crowdLevel,
+          noiseLevel: item.noiseLevel,
+          checkedInAt: item.checkedInAt,
+        },
+      ])
+    );
+
+    let enrichedSpots = spots.map((spot) => {
+      const ratingInfo = ratingMap.get(spot._id.toString()) || {
+        averageRating: 0,
+        totalReviews: 0,
+      };
+
+      const latestCheckIn = checkInMap.get(spot._id.toString()) || {
+        crowdLevel: null,
+        noiseLevel: null,
+        checkedInAt: null,
+      };
+
+      return {
+        ...spot,
+        averageRating: ratingInfo.averageRating,
+        totalReviews: ratingInfo.totalReviews,
+        latestCrowdLevel: latestCheckIn.crowdLevel,
+        latestNoiseLevel: latestCheckIn.noiseLevel,
+        latestCheckInAt: latestCheckIn.checkedInAt,
+      };
+    });
+
+    if (preferredAmenities.length > 0) {
+      enrichedSpots = enrichedSpots.filter((spot) =>
+        preferredAmenities.every((amenity) => spot.amenities?.includes(amenity))
+      );
+    }
+
+    if (preferredCrowdLevel !== null) {
+      enrichedSpots = enrichedSpots.filter(
+        (spot) => spot.latestCrowdLevel === preferredCrowdLevel
+      );
+    }
+
+    if (preferredNoiseLevel !== null) {
+      enrichedSpots = enrichedSpots.filter(
+        (spot) => spot.latestNoiseLevel === preferredNoiseLevel
+      );
+    }
+
+    if (preferredMinRating !== null) {
+      enrichedSpots = enrichedSpots.filter(
+        (spot) => spot.averageRating >= preferredMinRating
+      );
+    }
+
+    const total = enrichedSpots.length;
+    const pages = Math.ceil(total / parsedLimit) || 1;
+    const skip = (parsedPage - 1) * parsedLimit;
+    const paginatedSpots = enrichedSpots.slice(skip, skip + parsedLimit);
+
+    res.json({
+      spots: paginatedSpots,
+      preferences: {
+        amenities: preferredAmenities,
+        crowdLevel: preferredCrowdLevel,
+        noiseLevel: preferredNoiseLevel,
+        minRating: preferredMinRating,
+      },
+      pagination: {
+        total,
+        page: parsedPage,
+        limit: parsedLimit,
+        pages,
+      },
     });
   } catch (err) {
     next(err);
