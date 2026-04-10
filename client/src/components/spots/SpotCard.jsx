@@ -41,7 +41,7 @@ export default function SpotCard({ spot, onUpdate }) {
   const { user } = useAuth();
   const [deleting, setDeleting] = useState(false);
 
-  const isOwner = user?.id === spot.postedBy?._id;
+  const isOwner = (user?.id || user?._id) === (spot.postedBy?._id || spot.postedBy);
 
   const handleDelete = async () => {
     if (!window.confirm("Are you sure you want to delete this study spot?")) {
