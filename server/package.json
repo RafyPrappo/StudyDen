@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@google-cloud/local-auth": "^3.0.1",
+    "@googleapis/calendar": "^14.2.0",
     "axios": "^1.13.6",
     "barikoiapis": "^1.0.8",
     "bcryptjs": "^2.4.3",
