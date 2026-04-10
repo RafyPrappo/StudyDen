@@ -348,7 +348,7 @@ export default function ProfilePage() {
                 <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 mx-auto overflow-hidden">
                   {profile.profilePhoto ? (
                     <img 
-                      src={`http://localhost:5000${profile.profilePhoto}`} 
+                      src={`${import.meta.env.VITE_API_BASE_URL}${profile.profilePhoto}`} 
                       alt={profile.name}
                       className="w-full h-full object-cover"
                       onError={(e) => {

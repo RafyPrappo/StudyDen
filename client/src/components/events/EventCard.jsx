@@ -232,9 +232,30 @@ export default function EventCard({ event, onJoinLeave }) {
 
       <Link to={`/profile/${event.host?._id || event.host}`} className="block mb-4">
         <div className="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center font-semibold text-lg flex-shrink-0">
-            {event.host?.name?.charAt(0).toUpperCase() || "?"}
-          </div>
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 overflow-hidden flex-shrink-0">
+          {event.host?.profilePhoto ? (
+            <img
+              src={`${import.meta.env.VITE_API_BASE_URL}${event.host.profilePhoto}`}
+              alt={event.host?.name}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.style.display = "none";
+                const parent = e.target.parentElement;
+                const fallback = document.createElement("div");
+                fallback.className =
+                  "w-full h-full flex items-center justify-center text-white font-semibold text-lg";
+                fallback.textContent =
+                  event.host?.name?.charAt(0).toUpperCase() || "?";
+                parent.appendChild(fallback);
+              }}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-white font-semibold text-lg">
+              {event.host?.name?.charAt(0).toUpperCase() || "?"}
+            </div>
+          )}
+        </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-gray-900 truncate">{event.host?.name || "Unknown"}</p>
             <div className="flex items-center gap-2 text-xs text-gray-500">
