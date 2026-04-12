@@ -15,6 +15,29 @@ const { notFound, errorHandler } = require("./middleware/error.middleware");
 
 const app = express();
 
+// --- CORS configuration (allows localhost and the deployed frontend) ---
+const allowedOrigins = [
+  'http://localhost:5173',
+  process.env.FRONTEND_URL, // set this in Render to your Vercel URL (e.g., https://studyden.vercel.app)
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+  })
+);
+// -------------------------------------------------------------
+
+
 app.use(
   cors({
     origin: "http://localhost:5173",
