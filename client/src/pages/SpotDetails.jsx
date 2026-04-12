@@ -25,6 +25,7 @@ import {
   Clock3,
   Volume2,
   UserCheck,
+  Navigation,
 } from "lucide-react";
 
 const amenityIcons = {
@@ -144,6 +145,32 @@ export default function SpotDetails() {
     }
   };
 
+  const handleDirection = () => {
+    if (!spot?.location?.lat || !spot?.location?.lng) {
+      alert("Location coordinates are not available for this spot yet.");
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const userLat = position.coords.latitude;
+        const userLng = position.coords.longitude;
+
+        const url = `https://map.barikoi.com/?lat=${spot.location.lat}&lon=${spot.location.lng}&from_lat=${userLat}&from_lon=${userLng}`;
+        window.open(url, "_blank");
+      },
+      (err) => {
+        console.error("Failed to get user location:", err);
+        alert("Unable to get your current location.");
+      }
+    );
+  };
+
   const formatDateTime = (dateValue) => {
     if (!dateValue) return "N/A";
 
@@ -253,7 +280,14 @@ export default function SpotDetails() {
                     <span>{spot.address}</span>
                   </div>
 
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <div className="mt-4">
+                    <Button onClick={handleDirection}>
+                      <Navigation size={16} />
+                      Get Directions
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm text-gray-500 mt-3">
                     <CalendarDays size={16} className="text-gray-400" />
                     <span>Posted on {createdDate}</span>
                   </div>
@@ -552,13 +586,11 @@ export default function SpotDetails() {
           </div>
 
           <div className="lg:col-span-1 self-start">
-
             <SpotReviewsCard
-             spotId={spot._id}
-             canReview={canReview}
-             amenities={spot.amenities || []}
+              spotId={spot._id}
+              canReview={canReview}
+              amenities={spot.amenities || []}
             />
-
           </div>
         </div>
       </div>

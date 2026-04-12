@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const SpotReview = require("../models/SpotReview");
+
 exports.createOrUpdateSpotReview = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -141,7 +142,7 @@ const ALLOWED_AMENITIES = [
 
 exports.createSpot = async (req, res, next) => {
   try {
-    const { title, type, description, address, amenities } = req.body;
+    const { title, type, description, address, amenities, lat, lng } = req.body;
 
     if (!title || !type || !address) {
       return res.status(400).json({
@@ -152,6 +153,17 @@ exports.createSpot = async (req, res, next) => {
     if (!["Public", "Private"].includes(type)) {
       return res.status(400).json({
         message: "Type must be Public or Private",
+      });
+    }
+
+    if (
+      lat === undefined ||
+      lng === undefined ||
+      Number.isNaN(Number(lat)) ||
+      Number.isNaN(Number(lng))
+    ) {
+      return res.status(400).json({
+        message: "Valid map coordinates are required",
       });
     }
 
@@ -181,6 +193,10 @@ exports.createSpot = async (req, res, next) => {
       address,
       amenities: normalizedAmenities,
       postedBy: req.user.id,
+      location: {
+        lat: Number(lat),
+        lng: Number(lng),
+      },
     });
 
     await spot.populate("postedBy", "name email points badges profilePhoto");
@@ -225,7 +241,6 @@ exports.getSpots = async (req, res, next) => {
       filter.amenities = amenity;
     }
 
-    // Get all matching spots first
     const matchingSpots = await Spot.find(filter)
       .populate("postedBy", "name email points badges profilePhoto")
       .sort({ createdAt: -1 })
@@ -233,7 +248,6 @@ exports.getSpots = async (req, res, next) => {
 
     const spotIds = matchingSpots.map((spot) => spot._id);
 
-    // Aggregate ratings for those spots
     const ratingStats = await SpotReview.aggregate([
       {
         $match: {
@@ -259,7 +273,6 @@ exports.getSpots = async (req, res, next) => {
       ])
     );
 
-    // Attach rating info to each spot
     let enrichedSpots = matchingSpots.map((spot) => {
       const ratingInfo = ratingMap.get(spot._id.toString()) || {
         averageRating: 0,
@@ -273,7 +286,6 @@ exports.getSpots = async (req, res, next) => {
       };
     });
 
-    // Apply minimum rating filter if requested
     if (parsedMinRating !== null && !Number.isNaN(parsedMinRating)) {
       enrichedSpots = enrichedSpots.filter(
         (spot) => spot.averageRating >= parsedMinRating
@@ -375,7 +387,6 @@ exports.createSpotCheckIn = async (req, res, next) => {
       return res.status(404).json({ message: "Spot not found" });
     }
 
-    // Simple anti-spam: prevent repeated check-ins to the same spot within 10 minutes
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
     const recentCheckIn = await SpotCheckIn.findOne({
       spot: id,
