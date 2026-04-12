@@ -2,11 +2,13 @@ const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const { signToken } = require("../utils/jwt");
 
+// Environment‑aware cookie settings
 function setTokenCookie(res, token) {
+  const isProduction = process.env.NODE_ENV === 'production';
   res.cookie("token", token, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: false,
+    sameSite: isProduction ? 'none' : 'lax',
+    secure: isProduction,
     maxAge: 7 * 24 * 60 * 60 * 1000,
     path: "/"
   });
@@ -97,10 +99,11 @@ exports.me = async (req, res, next) => {
 };
 
 exports.logout = async (req, res) => {
+  const isProduction = process.env.NODE_ENV === 'production';
   res.clearCookie("token", { 
     httpOnly: true, 
-    sameSite: "lax", 
-    secure: false,
+    sameSite: isProduction ? 'none' : 'lax',
+    secure: isProduction,
     path: "/"
   });
   res.json({ ok: true });
