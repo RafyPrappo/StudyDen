@@ -93,7 +93,7 @@ export default function Leaderboard() {
               <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-sm overflow-hidden">
                 {user.profilePhoto ? (
                   <img 
-                    src={`http://localhost:5000${user.profilePhoto}`} 
+                    src={`http://localhost:9120${user.profilePhoto}`} 
                     alt={user.name}
                     className="w-full h-full object-cover"
                   />
@@ -152,7 +152,7 @@ export default function Leaderboard() {
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 overflow-hidden flex-shrink-0">
                         {userItem.profilePhoto ? (
                           <img 
-                            src={`http://localhost:5000${userItem.profilePhoto}`} 
+                            src={`http://localhost:9120${userItem.profilePhoto}`} 
                             alt={userItem.name}
                             className="w-full h-full object-cover"
                           />

@@ -33,6 +33,7 @@ async function start() {
   await connectDB();
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    console.log(`Health endpoint: http://localhost:${PORT}/api/health`);
   });
 }
 
