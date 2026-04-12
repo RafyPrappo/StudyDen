@@ -27,15 +27,18 @@ const TOPIC_STYLES = {
   Other: "bg-gray-100 text-gray-700 border-gray-200"
 };
 
-export default function EventCard({ event, onUpdate }) {
+export default function EventCard({ event, onJoinLeave }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [isFavorited, setIsFavorited] = useState(event.isFavorited || false);
-  const [isAttending, setIsAttending] = useState(event.isAttending || false);
   const [showShareTooltip, setShowShareTooltip] = useState(false);
 
-  const isHost = user?.id === event.host?._id;
+  // Use user._id if user.id is undefined (AuthContext may provide _id)
+  const userId = user?.id || user?._id;
+  const hostId = event.host?._id || event.host?.id;
+  const isHost = userId && hostId && userId === hostId;
+  const isAttending = event.isAttending || false;
   const isFull = event.attendees?.length >= event.maxAttendees;
   const spotsLeft = event.maxAttendees - (event.attendees?.length || 0);
   const spotsText = `${event.attendees?.length || 0}/${event.maxAttendees}`;
@@ -52,31 +55,41 @@ export default function EventCard({ event, onUpdate }) {
       navigate("/login", { state: { from: `/events/${event._id}` } });
       return;
     }
-
     setLoading(true);
     try {
       await eventApi.joinEvent(event._id);
-      setIsAttending(true);
-      if (onUpdate) onUpdate();
+      if (onJoinLeave) onJoinLeave(event._id, true);
     } catch (err) {
       console.error("Failed to join event:", err);
+      alert(err.message || "Failed to join");
     } finally {
       setLoading(false);
     }
   };
 
   const handleLeave = async () => {
-    if (!window.confirm("Are you sure you want to leave this event?")) {
-      return;
-    }
-
+    if (!window.confirm("Are you sure you want to leave this event?")) return;
     setLoading(true);
     try {
       await eventApi.leaveEvent(event._id);
-      setIsAttending(false);
-      if (onUpdate) onUpdate();
+      if (onJoinLeave) onJoinLeave(event._id, false);
     } catch (err) {
       console.error("Failed to leave event:", err);
+      alert(err.message || "Failed to leave");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!window.confirm("Are you sure you want to cancel this event? This cannot be undone.")) return;
+    setLoading(true);
+    try {
+      await eventApi.deleteEvent(event._id);
+      window.location.reload();
+    } catch (err) {
+      console.error("Failed to cancel event:", err);
+      alert(err.message || "Failed to cancel");
     } finally {
       setLoading(false);
     }
@@ -87,7 +100,6 @@ export default function EventCard({ event, onUpdate }) {
       navigate("/login", { state: { from: `/events/${event._id}` } });
       return;
     }
-
     try {
       await eventApi.toggleFavorite(event._id);
       setIsFavorited(!isFavorited);
@@ -105,22 +117,6 @@ export default function EventCard({ event, onUpdate }) {
       setTimeout(() => setShowShareTooltip(false), 2000);
     } catch (err) {
       console.error("Failed to share event:", err);
-    }
-  };
-
-  const handleCancel = async () => {
-    if (!window.confirm("Are you sure you want to cancel this event? This cannot be undone.")) {
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await eventApi.deleteEvent(event._id);
-      if (onUpdate) onUpdate();
-    } catch (err) {
-      console.error("Failed to cancel event:", err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -162,171 +158,162 @@ export default function EventCard({ event, onUpdate }) {
 
   return (
     <Card className="p-5 hover:shadow-lg transition-all duration-200 border border-gray-100 hover:border-blue-200 relative group h-[490px] flex flex-col">
-      {/* SECTION 1: TOP - Topic, Icons, Title */}
-      <div className="flex-shrink-0">
-        {/* Topic and icons row */}
-        <div className="flex items-start justify-between mb-2">
-          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${TOPIC_STYLES[event.topic] || TOPIC_STYLES.Other}`}>
-            {event.topic}
-          </span>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <button 
-                onClick={handleShare}
-                className="text-gray-400 hover:text-blue-600 transition-colors p-1 hover:bg-blue-50 rounded"
-              >
-                <Share2 size={18} />
-              </button>
-              {showShareTooltip && (
-                <div className="absolute right-0 top-8 bg-gray-800 text-white text-xs py-1 px-2 rounded whitespace-nowrap z-10">
-                  Link copied!
-                </div>
-              )}
-            </div>
+      <div className="flex items-start justify-between mb-2">
+        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${TOPIC_STYLES[event.topic] || TOPIC_STYLES.Other}`}>
+          {event.topic}
+        </span>
+        <div className="flex items-center gap-2">
+          <div className="relative">
             <button 
-              onClick={handleFavorite}
-              className={`transition-colors p-1 hover:bg-red-50 rounded ${
-                isFavorited ? "text-red-500" : "text-gray-400 hover:text-red-500"
-              }`}
+              onClick={handleShare}
+              className="text-gray-400 hover:text-blue-600 transition-colors p-1 hover:bg-blue-50 rounded"
             >
-              <Heart size={18} fill={isFavorited ? "currentColor" : "none"} />
+              <Share2 size={18} />
             </button>
-          </div>
-        </div>
-
-        {/* Title */}
-        <Link to={`/events/${event._id}`} className="block mb-3">
-          <h3 className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors line-clamp-2 min-h-[3.5rem]">
-            {event.title}
-          </h3>
-        </Link>
-      </div>
-
-      {/* SECTION 2: MIDDLE - Date, Location, Spots, Profile */}
-      <div className="flex-grow flex flex-col justify-center mt-2">
-        {/* Date and Location */}
-        <div className="space-y-2 mb-4">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Calendar size={16} className="text-gray-400 flex-shrink-0" />
-            <span>{formattedDate} • {event.time}</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <MapPin size={16} className="text-gray-400 flex-shrink-0" />
-            <span className="truncate">{event.location}</span>
-          </div>
-        </div>
-
-        {/* Spots filled */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between text-sm mb-1">
-            <div className="flex items-center gap-1 text-gray-600">
-              <Users size={16} />
-              <span>Spots filled</span>
-            </div>
-            <span className={`font-medium ${
-              spotsLeft === 0 ? "text-red-600" : 
-              spotsLeft < 5 ? "text-yellow-600" : 
-              "text-green-600"
-            }`}>
-              {spotsText}
-            </span>
-          </div>
-          <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div 
-              className={`h-full rounded-full transition-all ${
-                spotsLeft === 0 ? "bg-red-500" : 
-                spotsLeft < 5 ? "bg-yellow-500" : 
-                "bg-green-500"
-              }`}
-              style={{ width: `${((event.attendees?.length || 0) / event.maxAttendees) * 100}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Host info with profile photo */}
-        <Link to={`/profile/${event.host?._id}`} className="block">
-          <div className="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 overflow-hidden flex-shrink-0">
-              {event.host?.profilePhoto ? (
-                <img 
-                  src={`http://localhost:5000${event.host.profilePhoto}`} 
-                  alt={event.host?.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-white font-semibold text-lg">
-                  {event.host?.name?.charAt(0).toUpperCase() || "?"}
-                </div>
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-gray-900 truncate">{event.host?.name || "Unknown"}</p>
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <span className="flex items-center gap-1 flex-shrink-0">
-                  <Trophy size={12} />
-                  {event.host?.points || 0} pts
-                </span>
-                {event.host?.badges?.length > 0 && (
-                  <>
-                    <span className="flex-shrink-0">•</span>
-                    <span className="flex items-center gap-0.5">
-                      {event.host.badges.slice(0, 2).map(badge => (
-                        <Medal key={badge} size={12} className="text-yellow-500 flex-shrink-0" />
-                      ))}
-                    </span>
-                  </>
-                )}
+            {showShareTooltip && (
+              <div className="absolute right-0 top-8 bg-gray-800 text-white text-xs py-1 px-2 rounded whitespace-nowrap z-10">
+                Link copied!
               </div>
-            </div>
+            )}
           </div>
-        </Link>
+          <button 
+            onClick={handleFavorite}
+            className={`transition-colors p-1 hover:bg-red-50 rounded ${
+              isFavorited ? "text-red-500" : "text-gray-400 hover:text-red-500"
+            }`}
+          >
+            <Heart size={18} fill={isFavorited ? "currentColor" : "none"} />
+          </button>
+        </div>
       </div>
 
-      {/* SECTION 3: BOTTOM - Action buttons */}
-      <div className="flex-shrink-0 mt-3 space-y-2">
-        {isHost ? (
-          <>
-            <Link to={`/events/${event._id}/manage`} className="block">
-              <Button variant="ghost" className="w-full text-sm py-2 border border-gray-300 bg-white text-gray-700 hover:border-blue-400 hover:text-blue-600 transition-colors">
-                <MoreVertical size={16} className="mr-2" />
-                Manage
-              </Button>
-            </Link>
-            <Button 
-              variant="ghost" 
-              onClick={handleCancel}
-              disabled={loading}
-              className="w-full text-sm py-2 border border-gray-300 bg-white text-gray-700 hover:border-red-400 hover:text-red-600 transition-colors"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <Loader2 size={16} className="animate-spin" />
-                  Cancelling...
-                </span>
-              ) : (
-                <span className="flex items-center justify-center gap-2">
-                  <X size={16} />
-                  Cancel
-                </span>
+      <Link to={`/events/${event._id}`} className="block mb-3">
+        <h3 className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors line-clamp-2 min-h-[3.5rem]">
+          {event.title}
+        </h3>
+      </Link>
+
+      <div className="space-y-2 mb-4">
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <Calendar size={16} className="text-gray-400 flex-shrink-0" />
+          <span>{formattedDate} • {event.time}</span>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <MapPin size={16} className="text-gray-400 flex-shrink-0" />
+          <span className="truncate">{event.location}</span>
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <div className="flex items-center justify-between text-sm mb-1">
+          <div className="flex items-center gap-1 text-gray-600">
+            <Users size={16} />
+            <span>Spots filled</span>
+          </div>
+          <span className={`font-medium ${
+            spotsLeft === 0 ? "text-red-600" : 
+            spotsLeft < 5 ? "text-yellow-600" : 
+            "text-green-600"
+          }`}>
+            {spotsText}
+          </span>
+        </div>
+        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div 
+            className={`h-full rounded-full transition-all ${
+              spotsLeft === 0 ? "bg-red-500" : 
+              spotsLeft < 5 ? "bg-yellow-500" : 
+              "bg-green-500"
+            }`}
+            style={{ width: `${((event.attendees?.length || 0) / event.maxAttendees) * 100}%` }}
+          />
+        </div>
+      </div>
+
+      <Link to={`/profile/${event.host?._id || event.host}`} className="block mb-4">
+        <div className="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 overflow-hidden flex-shrink-0">
+          {event.host?.profilePhoto ? (
+            <img
+              src={`${import.meta.env.VITE_API_BASE_URL}${event.host.profilePhoto}`}
+              alt={event.host?.name}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.style.display = "none";
+                const parent = e.target.parentElement;
+                const fallback = document.createElement("div");
+                fallback.className =
+                  "w-full h-full flex items-center justify-center text-white font-semibold text-lg";
+                fallback.textContent =
+                  event.host?.name?.charAt(0).toUpperCase() || "?";
+                parent.appendChild(fallback);
+              }}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-white font-semibold text-lg">
+              {event.host?.name?.charAt(0).toUpperCase() || "?"}
+            </div>
+          )}
+        </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-gray-900 truncate">{event.host?.name || "Unknown"}</p>
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <span className="flex items-center gap-1 flex-shrink-0">
+                <Trophy size={12} />
+                {event.host?.points || 0} pts
+              </span>
+              {event.host?.badges?.length > 0 && (
+                <>
+                  <span className="flex-shrink-0">•</span>
+                  <span className="flex items-center gap-0.5">
+                    {event.host.badges.slice(0, 2).map(badge => (
+                      <Medal key={badge} size={12} className="text-yellow-500 flex-shrink-0" />
+                    ))}
+                  </span>
+                </>
               )}
-            </Button>
-          </>
+            </div>
+          </div>
+        </div>
+      </Link>
+
+      <div className="mt-auto space-y-2">
+        {isHost ? (
+          <Button 
+            variant="ghost" 
+            onClick={handleCancel}
+            disabled={loading}
+            className="w-full border border-red-200 text-red-600 hover:bg-red-50"
+          >
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 size={16} className="animate-spin" />
+                Cancelling...
+              </span>
+            ) : (
+              <span className="flex items-center justify-center gap-2">
+                <X size={16} />
+                Cancel Event
+              </span>
+            )}
+          </Button>
         ) : (
           <>
             {isAttending ? (
               <>
                 <Button
                   disabled
-                  className="w-full text-sm py-2 bg-green-50 text-green-700 border border-green-300 cursor-not-allowed"
+                  className="w-full bg-green-500 text-white opacity-100 cursor-not-allowed"
                 >
                   <Check size={16} className="mr-2" />
-                  Attending
+                  You're attending
                 </Button>
                 <Button 
                   variant="ghost" 
                   onClick={handleLeave}
                   disabled={loading}
-                  className="w-full text-sm py-2 border border-gray-300 bg-white text-gray-700 hover:border-gray-500 hover:text-gray-900 transition-colors"
+                  className="w-full border border-gray-200 text-gray-600 hover:bg-gray-50"
                 >
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
@@ -345,7 +332,7 @@ export default function EventCard({ event, onUpdate }) {
               <Button
                 onClick={handleJoin}
                 disabled={loading || isFull}
-                className={`w-full text-sm py-2 ${
+                className={`w-full ${
                   isFull ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-blue-600 text-white hover:bg-blue-700"
                 }`}
               >

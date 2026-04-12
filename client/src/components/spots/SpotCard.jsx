@@ -152,7 +152,7 @@ export default function SpotCard({ spot, onUpdate }) {
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 overflow-hidden flex-shrink-0">
             {spot.postedBy?.profilePhoto ? (
               <img
-                src={`http://localhost:5000${spot.postedBy.profilePhoto}`}
+                src={`${import.meta.env.VITE_API_BASE_URL}${spot.postedBy.profilePhoto}`}
                 alt={spot.postedBy?.name}
                 className="w-full h-full object-cover"
               />
