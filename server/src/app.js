@@ -18,7 +18,7 @@ const app = express();
 // --- CORS configuration (allows localhost and the deployed frontend) ---
 const allowedOrigins = [
   'http://localhost:5173',
-  process.env.FRONTEND_URL, // set this in Render to your Vercel URL (e.g., https://studyden.vercel.app)
+  process.env.FRONTEND_URL,
 ].filter(Boolean);
 
 app.use(
@@ -29,6 +29,7 @@ app.use(
       if (allowedOrigins.indexOf(origin) !== -1) {
         callback(null, true);
       } else {
+        console.log(`CORS blocked origin: ${origin}`);
         callback(new Error('Not allowed by CORS'));
       }
     },
@@ -37,15 +38,8 @@ app.use(
 );
 // -------------------------------------------------------------
 
-
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-    credentials: true,
-  })
-);
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // THIS IS NEEDED for x-www-form-urlencoded why?
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use("/uploads", express.static("uploads"));
 app.use("/api/calendar", calendarRoutes);
