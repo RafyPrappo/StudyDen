@@ -1,4 +1,7 @@
 const SpotReview = require("../models/SpotReview");
+const { PointsCalculator } = require("../utils/pointsCalculator"); // Prappo
+const Notification = require("../models/Notification"); // Prappo
+
 exports.createOrUpdateSpotReview = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -126,6 +129,7 @@ const NOISE_LABELS = {
 };
 
 const Spot = require("../models/Spot");
+const User = require("../models/User");
 
 const ALLOWED_AMENITIES = [
   "WiFi",
@@ -140,7 +144,7 @@ const ALLOWED_AMENITIES = [
 
 exports.createSpot = async (req, res, next) => {
   try {
-    const { title, type, description, address, amenities } = req.body;
+    const { title, type, description, address, amenities, lat, lng } = req.body;
 
     if (!title || !type || !address) {
       return res.status(400).json({
@@ -151,6 +155,17 @@ exports.createSpot = async (req, res, next) => {
     if (!["Public", "Private"].includes(type)) {
       return res.status(400).json({
         message: "Type must be Public or Private",
+      });
+    }
+
+    if (
+      lat === undefined ||
+      lng === undefined ||
+      Number.isNaN(Number(lat)) ||
+      Number.isNaN(Number(lng))
+    ) {
+      return res.status(400).json({
+        message: "Valid map coordinates are required",
       });
     }
 
@@ -180,23 +195,129 @@ exports.createSpot = async (req, res, next) => {
       address,
       amenities: normalizedAmenities,
       postedBy: req.user.id,
+      location: {
+        lat: Number(lat),
+        lng: Number(lng),
+      },
     });
 
     await spot.populate("postedBy", "name email points badges profilePhoto");
 
+  // Prappo: Award points for creating a spot ->
+  const user = await User.findById(req.user.id);
+  const pointsEarned = PointsCalculator.getPointsForAction('ADD_SPOT');
+  user.points += pointsEarned;
+
+  // New badge chek
+  const newBadges = PointsCalculator.checkNewBadges(user);
+  if (newBadges.length > 0) {
+    user.badges = [...(user.badges || []), ...newBadges];
+  }
+  await user.save();
+
+  // send notification
+  await Notification.create({
+    user: user._id,
+    type: "points_earned",
+    title: "Points Earned",
+    message: `You earned ${pointsEarned} points for adding a new spot!`
+  });
+
+
     res.status(201).json({ spot });
   } catch (err) {
+    next(err);
+  }
+
+
+};
+
+const axios = require("axios");
+
+exports.getSpotDirections = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { startLat, startLng, profile = "car" } = req.query;
+
+    const spot = await Spot.findById(id);
+
+    if (!spot || !spot.location) {
+      return res.status(404).json({ message: "Spot not found" });
+    }
+
+    const parsedStartLat = Number(startLat);
+    const parsedStartLng = Number(startLng);
+
+    if (Number.isNaN(parsedStartLat) || Number.isNaN(parsedStartLng)) {
+      return res.status(400).json({ message: "Invalid start location" });
+    }
+
+    if (
+      typeof spot.location.lat !== "number" ||
+      typeof spot.location.lng !== "number"
+    ) {
+      return res.status(200).json({
+        route: null,
+        message: "This spot has no coordinates.",
+      });
+    }
+
+    const profileMap = {
+      car: "car",
+      foot: "foot",
+      bike: "motorcycle",
+    };
+
+    const selected = profileMap[profile] || "car";
+
+    const url = `https://barikoi.xyz/v2/api/route/${parsedStartLng},${parsedStartLat};${spot.location.lng},${spot.location.lat}?api_key=${process.env.BARIKOI_API_KEY}&geometries=geojson&profile=${selected}`;
+
+    console.log("Routing URL:", url);
+
+    const response = await axios.get(url);
+
+    console.log("Barikoi response:", response.data);
+
+    const route =
+      response.data?.routes?.[0] ||
+      response.data?.route ||
+      response.data;
+
+    if (!route || !route.geometry) {
+      return res.status(200).json({
+        route: null,
+        message: "No route found",
+      });
+    }
+
+    res.json({
+      route: {
+        distance: route.distance || 0,
+        duration: route.duration || 0,
+        geometry: route.geometry,
+      },
+    });
+  } catch (err) {
+    console.error("Routing error:", err.response?.data || err.message);
     next(err);
   }
 };
 
 exports.getSpots = async (req, res, next) => {
   try {
-    const { type, search, amenity, page = 1, limit = 9 } = req.query;
+    const {
+      type,
+      search,
+      amenity,
+      minRating,
+      page = 1,
+      limit = 9,
+    } = req.query;
 
     const parsedPage = parseInt(page, 10);
     const parsedLimit = parseInt(limit, 10);
-    const skip = (parsedPage - 1) * parsedLimit;
+    const parsedMinRating =
+      minRating && minRating !== "All" ? parseFloat(minRating) : null;
 
     const filter = { isApproved: true };
 
@@ -216,21 +337,70 @@ exports.getSpots = async (req, res, next) => {
       filter.amenities = amenity;
     }
 
-    const spots = await Spot.find(filter)
+    const matchingSpots = await Spot.find(filter)
       .populate("postedBy", "name email points badges profilePhoto")
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parsedLimit);
+      .lean();
 
-    const total = await Spot.countDocuments(filter);
+    const spotIds = matchingSpots.map((spot) => spot._id);
+
+    const ratingStats = await SpotReview.aggregate([
+      {
+        $match: {
+          spot: { $in: spotIds },
+        },
+      },
+      {
+        $group: {
+          _id: "$spot",
+          averageRating: { $avg: "$rating" },
+          totalReviews: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const ratingMap = new Map(
+      ratingStats.map((item) => [
+        item._id.toString(),
+        {
+          averageRating: Number(item.averageRating.toFixed(1)),
+          totalReviews: item.totalReviews,
+        },
+      ])
+    );
+
+    let enrichedSpots = matchingSpots.map((spot) => {
+      const ratingInfo = ratingMap.get(spot._id.toString()) || {
+        averageRating: 0,
+        totalReviews: 0,
+      };
+
+      return {
+        ...spot,
+        averageRating: ratingInfo.averageRating,
+        totalReviews: ratingInfo.totalReviews,
+      };
+    });
+
+    if (parsedMinRating !== null && !Number.isNaN(parsedMinRating)) {
+      enrichedSpots = enrichedSpots.filter(
+        (spot) => spot.averageRating >= parsedMinRating
+      );
+    }
+
+    const total = enrichedSpots.length;
+    const pages = Math.ceil(total / parsedLimit) || 1;
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    const paginatedSpots = enrichedSpots.slice(skip, skip + parsedLimit);
 
     res.json({
-      spots,
+      spots: paginatedSpots,
       pagination: {
         total,
         page: parsedPage,
         limit: parsedLimit,
-        pages: Math.ceil(total / parsedLimit),
+        pages,
       },
     });
   } catch (err) {
@@ -283,12 +453,27 @@ exports.deleteSpot = async (req, res, next) => {
       return res.status(403).json({ message: "Forbidden" });
     }
 
+  // Prappo: Deduct points for deleting a spot ->
+  const originalPoster = await User.findById(spot.postedBy);
+  const pointsToDeduct = PointsCalculator.getPointsForAction('REMOVE_SPOT');
+  originalPoster.points = Math.max(0, originalPoster.points + pointsToDeduct);
+  await originalPoster.save();
+
+  // send notification to original poster
+  await Notification.create({
+    user: originalPoster._id,
+    type: "points_earned",
+    title: "Points Deducted",
+    message: `You lost ${-pointsToDeduct} points for deleting a spot.`
+  });
+
     await Spot.findByIdAndDelete(id);
 
     res.json({ message: "Spot deleted successfully" });
   } catch (err) {
     next(err);
   }
+
 };
 
 exports.createSpotCheckIn = async (req, res, next) => {
@@ -313,7 +498,6 @@ exports.createSpotCheckIn = async (req, res, next) => {
       return res.status(404).json({ message: "Spot not found" });
     }
 
-    // Simple anti-spam: prevent repeated check-ins to the same spot within 10 minutes
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
     const recentCheckIn = await SpotCheckIn.findOne({
       spot: id,
@@ -384,6 +568,161 @@ exports.getSpotCheckInStatus = async (req, res, next) => {
             noiseLabel: NOISE_LABELS[myLatestCheckIn.noiseLevel],
           }
         : null,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getSpotsByMyPreferences = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select("preferences");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const preferences = user.preferences || {};
+    const preferredAmenities = Array.isArray(preferences.amenities)
+      ? preferences.amenities
+      : [];
+    const preferredCrowdLevel = preferences.crowdLevel ?? null;
+    const preferredNoiseLevel = preferences.noiseLevel ?? null;
+    const preferredMinRating = preferences.minRating ?? null;
+
+    const { page = 1, limit = 9 } = req.query;
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+
+    const spots = await Spot.find({ isApproved: true })
+      .populate("postedBy", "name email points badges profilePhoto")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const spotIds = spots.map((spot) => spot._id);
+
+    const ratingStats = await SpotReview.aggregate([
+      {
+        $match: {
+          spot: { $in: spotIds },
+        },
+      },
+      {
+        $group: {
+          _id: "$spot",
+          averageRating: { $avg: "$rating" },
+          totalReviews: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const ratingMap = new Map(
+      ratingStats.map((item) => [
+        item._id.toString(),
+        {
+          averageRating: Number(item.averageRating.toFixed(1)),
+          totalReviews: item.totalReviews,
+        },
+      ])
+    );
+
+    const latestCheckIns = await SpotCheckIn.aggregate([
+      {
+        $match: {
+          spot: { $in: spotIds },
+        },
+      },
+      {
+        $sort: {
+          checkedInAt: -1,
+        },
+      },
+      {
+        $group: {
+          _id: "$spot",
+          crowdLevel: { $first: "$crowdLevel" },
+          noiseLevel: { $first: "$noiseLevel" },
+          checkedInAt: { $first: "$checkedInAt" },
+        },
+      },
+    ]);
+
+    const checkInMap = new Map(
+      latestCheckIns.map((item) => [
+        item._id.toString(),
+        {
+          crowdLevel: item.crowdLevel,
+          noiseLevel: item.noiseLevel,
+          checkedInAt: item.checkedInAt,
+        },
+      ])
+    );
+
+    let enrichedSpots = spots.map((spot) => {
+      const ratingInfo = ratingMap.get(spot._id.toString()) || {
+        averageRating: 0,
+        totalReviews: 0,
+      };
+
+      const latestCheckIn = checkInMap.get(spot._id.toString()) || {
+        crowdLevel: null,
+        noiseLevel: null,
+        checkedInAt: null,
+      };
+
+      return {
+        ...spot,
+        averageRating: ratingInfo.averageRating,
+        totalReviews: ratingInfo.totalReviews,
+        latestCrowdLevel: latestCheckIn.crowdLevel,
+        latestNoiseLevel: latestCheckIn.noiseLevel,
+        latestCheckInAt: latestCheckIn.checkedInAt,
+      };
+    });
+
+    if (preferredAmenities.length > 0) {
+      enrichedSpots = enrichedSpots.filter((spot) =>
+        preferredAmenities.every((amenity) => spot.amenities?.includes(amenity))
+      );
+    }
+
+    if (preferredCrowdLevel !== null) {
+      enrichedSpots = enrichedSpots.filter(
+        (spot) => spot.latestCrowdLevel === preferredCrowdLevel
+      );
+    }
+
+    if (preferredNoiseLevel !== null) {
+      enrichedSpots = enrichedSpots.filter(
+        (spot) => spot.latestNoiseLevel === preferredNoiseLevel
+      );
+    }
+
+    if (preferredMinRating !== null) {
+      enrichedSpots = enrichedSpots.filter(
+        (spot) => spot.averageRating >= preferredMinRating
+      );
+    }
+
+    const total = enrichedSpots.length;
+    const pages = Math.ceil(total / parsedLimit) || 1;
+    const skip = (parsedPage - 1) * parsedLimit;
+    const paginatedSpots = enrichedSpots.slice(skip, skip + parsedLimit);
+
+    res.json({
+      spots: paginatedSpots,
+      preferences: {
+        amenities: preferredAmenities,
+        crowdLevel: preferredCrowdLevel,
+        noiseLevel: preferredNoiseLevel,
+        minRating: preferredMinRating,
+      },
+      pagination: {
+        total,
+        page: parsedPage,
+        limit: parsedLimit,
+        pages,
+      },
     });
   } catch (err) {
     next(err);
