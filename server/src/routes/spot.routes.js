@@ -13,6 +13,7 @@ const {
   getMySpotReview,
   getSpotsByMyPreferences,
   getSpotDirections,
+  getSpotAnalytics,
 
 } = require("../controllers/spot.controller");
 
@@ -27,6 +28,7 @@ router.get("/:id/check-in-status", requireAuth, getSpotCheckInStatus);
 router.post("/:id/check-in", requireAuth, createSpotCheckIn);
 router.get("/my-preferences", requireAuth, getSpotsByMyPreferences);
 router.get("/:id/directions", requireAuth, getSpotDirections);
+router.get("/:id/analytics", getSpotAnalytics);
 router.get("/:id", getSpot);
 router.post("/", requireAuth, createSpot);
 router.delete("/:id", requireAuth, deleteSpot);

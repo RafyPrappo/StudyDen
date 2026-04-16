@@ -79,6 +79,7 @@ export default function SpotDetails() {
 
   const [myLatestCheckIn, setMyLatestCheckIn] = useState(null);
   const [latestCheckIn, setLatestCheckIn] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
 
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
@@ -174,14 +175,16 @@ export default function SpotDetails() {
       setLoading(true);
       setError("");
 
-      const [spotData, checkInData] = await Promise.all([
+      const [spotData, checkInData, analyticsData] = await Promise.all([
         spotApi.getSpot(id),
         spotApi.getCheckInStatus(id),
+        spotApi.getSpotAnalytics(id),
       ]);
 
       setSpot(spotData.spot);
       setMyLatestCheckIn(checkInData.myLatestCheckIn || null);
       setLatestCheckIn(checkInData.latestCheckIn || null);
+      setAnalytics(analyticsData.analytics || null);
     } catch (err) {
       setError(err.message || "Failed to load study spot");
       console.error(err);
@@ -636,11 +639,11 @@ export default function SpotDetails() {
                   <div className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors">
                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 overflow-hidden flex-shrink-0">
                       {spot.postedBy?.profilePhoto ? (
-                        <img
-                          src={`http://localhost:5000${spot.postedBy.profilePhoto}`}
-                          alt={spot.postedBy?.name}
-                          className="w-full h-full object-cover"
-                        />
+                      <img
+                        src={`${import.meta.env.VITE_API_BASE_URL}${spot.postedBy.profilePhoto}`}
+                        alt={spot.postedBy?.name}
+                        className="w-full h-full object-cover"
+                      />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-white font-semibold text-lg">
                           {spot.postedBy?.name?.charAt(0).toUpperCase() || "?"}
@@ -861,6 +864,78 @@ export default function SpotDetails() {
                 </p>
               )}
             </Card>
+
+            <Card className="p-6 mt-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                Spot Analytics
+              </h2>
+
+              {analytics && analytics.totalCheckIns > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                      <Users size={16} />
+                      Average crowd
+                    </div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {analytics.averageCrowdLevel} - {analytics.averageCrowdLabel}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                      <Volume2 size={16} />
+                      Average noise
+                    </div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {analytics.averageNoiseLevel} - {analytics.averageNoiseLabel}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                      <Clock3 size={16} />
+                      Peak hour
+                    </div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {analytics.peakHour?.label || "N/A"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="text-sm text-gray-500 mb-2">
+                      Total check-ins
+                    </div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {analytics.totalCheckIns}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="text-sm text-gray-500 mb-2">
+                      Check-ins in last 24 hours
+                    </div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {analytics.recentCheckIns?.last24Hours || 0}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="text-sm text-gray-500 mb-2">
+                      Check-ins in last 7 days
+                    </div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {analytics.recentCheckIns?.last7Days || 0}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-500">
+                  No analytics available yet for this study spot.
+                </p>
+              )}
+            </Card>
+
           </div>
 
           <div className="lg:col-span-1 self-start">

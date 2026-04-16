@@ -129,6 +129,13 @@ const NOISE_LABELS = {
   5: "Very Noisy",
 };
 
+const getNearestLabel = (value, labels) => {
+  if (!value) return "N/A";
+
+  const rounded = Math.min(5, Math.max(1, Math.round(value)));
+  return labels[rounded] || "N/A";
+};
+
 const Spot = require("../models/Spot");
 const User = require("../models/User");
 
@@ -232,6 +239,7 @@ exports.createSpot = async (req, res, next) => {
 
 };
 
+const mongoose = require("mongoose");
 const axios = require("axios");
 
 exports.getSpotDirections = async (req, res, next) => {
@@ -568,6 +576,115 @@ exports.getSpotCheckInStatus = async (req, res, next) => {
             noiseLabel: NOISE_LABELS[myLatestCheckIn.noiseLevel],
           }
         : null,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getSpotAnalytics = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const spot = await Spot.findById(id);
+    if (!spot) {
+      return res.status(404).json({ message: "Spot not found" });
+    }
+
+    const spotObjectId = new mongoose.Types.ObjectId(id);
+
+    const [summaryResult, peakHourResult, last24HoursCount, last7DaysCount] =
+      await Promise.all([
+        SpotCheckIn.aggregate([
+          {
+            $match: {
+              spot: spotObjectId,
+            },
+          },
+          {
+            $group: {
+              _id: "$spot",
+              averageCrowdLevel: { $avg: "$crowdLevel" },
+              averageNoiseLevel: { $avg: "$noiseLevel" },
+              totalCheckIns: { $sum: 1 },
+              latestCheckInAt: { $max: "$checkedInAt" },
+            },
+          },
+        ]),
+        SpotCheckIn.aggregate([
+          {
+            $match: {
+              spot: spotObjectId,
+            },
+          },
+          {
+            $project: {
+              hour: { $hour: "$checkedInAt" },
+            },
+          },
+          {
+            $group: {
+              _id: "$hour",
+              count: { $sum: 1 },
+            },
+          },
+          {
+            $sort: {
+              count: -1,
+              _id: 1,
+            },
+          },
+          {
+            $limit: 1,
+          },
+        ]),
+        SpotCheckIn.countDocuments({
+          spot: id,
+          checkedInAt: {
+            $gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+          },
+        }),
+        SpotCheckIn.countDocuments({
+          spot: id,
+          checkedInAt: {
+            $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          },
+        }),
+      ]);
+
+    const summary = summaryResult[0] || null;
+    const peakHour = peakHourResult[0] || null;
+
+    res.json({
+      analytics: {
+        averageCrowdLevel: summary
+          ? Number(summary.averageCrowdLevel.toFixed(1))
+          : 0,
+        averageCrowdLabel: summary
+          ? getNearestLabel(summary.averageCrowdLevel, CROWD_LABELS)
+          : "N/A",
+        averageNoiseLevel: summary
+          ? Number(summary.averageNoiseLevel.toFixed(1))
+          : 0,
+        averageNoiseLabel: summary
+          ? getNearestLabel(summary.averageNoiseLevel, NOISE_LABELS)
+          : "N/A",
+        totalCheckIns: summary ? summary.totalCheckIns : 0,
+        latestCheckInAt: summary ? summary.latestCheckInAt : null,
+        peakHour: peakHour
+          ? {
+              hour: peakHour._id,
+              label: `${String(peakHour._id).padStart(2, "0")}:00 - ${String(
+                (peakHour._id + 1) % 24
+              ).padStart(2, "0")}:00`,
+              totalCheckIns: peakHour.count,
+            }
+          : null,
+        recentCheckIns: {
+          last24Hours: last24HoursCount,
+          last7Days: last7DaysCount,
+        },
+      },
     });
   } catch (err) {
     next(err);
