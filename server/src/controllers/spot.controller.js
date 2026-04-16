@@ -146,7 +146,6 @@ const ALLOWED_AMENITIES = [
 exports.createSpot = async (req, res, next) => {
   try {
     const { title, type, description, address, amenities, lat, lng } = req.body;
-    const { title, type, description, address, amenities, lat, lng } = req.body;
 
     if (!title || !type || !address) {
       return res.status(400).json({
@@ -157,17 +156,6 @@ exports.createSpot = async (req, res, next) => {
     if (!["Public", "Private"].includes(type)) {
       return res.status(400).json({
         message: "Type must be Public or Private",
-      });
-    }
-
-    if (
-      lat === undefined ||
-      lng === undefined ||
-      Number.isNaN(Number(lat)) ||
-      Number.isNaN(Number(lng))
-    ) {
-      return res.status(400).json({
-        message: "Valid map coordinates are required",
       });
     }
 
@@ -212,13 +200,9 @@ exports.createSpot = async (req, res, next) => {
         lat: Number(lat),
         lng: Number(lng),
       },
-      location: {
-        lat: Number(lat),
-        lng: Number(lng),
-      },
     });
 
-    await spot.populate("postedBy", "name email points badges profilePhoto");
+  await spot.populate("postedBy", "name email points badges profilePhoto");
 
   // Prappo: Award points for creating a spot ->
   const user = await User.findById(req.user.id);
@@ -245,7 +229,6 @@ exports.createSpot = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-
 
 };
 
@@ -330,19 +313,9 @@ exports.getSpots = async (req, res, next) => {
       page = 1,
       limit = 9,
     } = req.query;
-    const {
-      type,
-      search,
-      amenity,
-      minRating,
-      page = 1,
-      limit = 9,
-    } = req.query;
 
     const parsedPage = parseInt(page, 10);
     const parsedLimit = parseInt(limit, 10);
-    const parsedMinRating =
-      minRating && minRating !== "All" ? parseFloat(minRating) : null;
     const parsedMinRating =
       minRating && minRating !== "All" ? parseFloat(minRating) : null;
 

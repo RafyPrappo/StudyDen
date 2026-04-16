@@ -26,7 +26,6 @@ import {
   Volume2,
   UserCheck,
   Navigation,
-  Navigation,
 } from "lucide-react";
 
 const amenityIcons = {
