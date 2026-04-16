@@ -202,7 +202,7 @@ exports.createSpot = async (req, res, next) => {
       },
     });
 
-    await spot.populate("postedBy", "name email points badges profilePhoto");
+  await spot.populate("postedBy", "name email points badges profilePhoto");
 
   // Prappo: Award points for creating a spot ->
   const user = await User.findById(req.user.id);
@@ -230,7 +230,77 @@ exports.createSpot = async (req, res, next) => {
     next(err);
   }
 
+};
 
+const axios = require("axios");
+
+exports.getSpotDirections = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { startLat, startLng, profile = "car" } = req.query;
+
+    const spot = await Spot.findById(id);
+
+    if (!spot || !spot.location) {
+      return res.status(404).json({ message: "Spot not found" });
+    }
+
+    const parsedStartLat = Number(startLat);
+    const parsedStartLng = Number(startLng);
+
+    if (Number.isNaN(parsedStartLat) || Number.isNaN(parsedStartLng)) {
+      return res.status(400).json({ message: "Invalid start location" });
+    }
+
+    if (
+      typeof spot.location.lat !== "number" ||
+      typeof spot.location.lng !== "number"
+    ) {
+      return res.status(200).json({
+        route: null,
+        message: "This spot has no coordinates.",
+      });
+    }
+
+    const profileMap = {
+      car: "car",
+      foot: "foot",
+      bike: "motorcycle",
+    };
+
+    const selected = profileMap[profile] || "car";
+
+    const url = `https://barikoi.xyz/v2/api/route/${parsedStartLng},${parsedStartLat};${spot.location.lng},${spot.location.lat}?api_key=${process.env.BARIKOI_API_KEY}&geometries=geojson&profile=${selected}`;
+
+    console.log("Routing URL:", url);
+
+    const response = await axios.get(url);
+
+    console.log("Barikoi response:", response.data);
+
+    const route =
+      response.data?.routes?.[0] ||
+      response.data?.route ||
+      response.data;
+
+    if (!route || !route.geometry) {
+      return res.status(200).json({
+        route: null,
+        message: "No route found",
+      });
+    }
+
+    res.json({
+      route: {
+        distance: route.distance || 0,
+        duration: route.duration || 0,
+        geometry: route.geometry,
+      },
+    });
+  } catch (err) {
+    console.error("Routing error:", err.response?.data || err.message);
+    next(err);
+  }
 };
 
 exports.getSpots = async (req, res, next) => {

@@ -8,6 +8,7 @@ export const spotApi = {
     if (params.search) queryParams.append("search", params.search);
     if (params.amenity && params.amenity !== "All") queryParams.append("amenity", params.amenity);
     if (params.minRating && params.minRating !== "All") queryParams.append("minRating", params.minRating);
+    if (params.minRating && params.minRating !== "All") queryParams.append("minRating", params.minRating);
     if (params.page) queryParams.append("page", params.page);
     if (params.limit) queryParams.append("limit", params.limit);
 
@@ -26,6 +27,21 @@ export const spotApi = {
     });
   },
 
+  getDirections: (id, params = {}) => {
+    const queryParams = new URLSearchParams();
+
+    if (params.startLat) queryParams.append("startLat", params.startLat);
+    if (params.startLng) queryParams.append("startLng", params.startLng);
+    if (params.profile) queryParams.append("profile", params.profile);
+
+    const queryString = queryParams.toString();
+
+    return api.get(
+      `/api/spots/${id}/directions${queryString ? `?${queryString}` : ""}`,
+      { credentials: "include" }
+    );
+  },
+
 
   getSpot: (id) => api.get(`/api/spots/${id}`),
 
@@ -40,6 +56,7 @@ export const spotApi = {
 
   getCheckInStatus: (id) =>
     api.get(`/api/spots/${id}/check-in-status`, { credentials: "include" }),
+
 
   getReviews: (id) => api.get(`/api/spots/${id}/reviews`),
 
