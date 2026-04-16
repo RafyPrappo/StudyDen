@@ -137,7 +137,7 @@ export default function Spots() {
             Browse student-friendly public and private study spaces, or post a new one for others to discover.
           </p>
 
-          <form onSubmit={handleSearch} className="flex gap-3">
+          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
@@ -153,7 +153,7 @@ export default function Spots() {
               />
             </div>
 
-            <Button type="submit" className="h-12 px-8">
+            <Button type="submit" className="h-12 px-8 w-full sm:w-auto">
               Search
             </Button>
 

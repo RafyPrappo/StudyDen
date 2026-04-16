@@ -35,6 +35,10 @@ const spotSchema = new mongoose.Schema(
       trim: true,
       maxlength: 200,
     },
+    location: {
+      lat: { type: Number },
+      lng: { type: Number },
+    },
     amenities: [
       {
         type: String,

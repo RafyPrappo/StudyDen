@@ -221,15 +221,38 @@ export default function EventDetails() {
 
             <div className="border-t pt-4">
               <h3 className="text-lg font-semibold mb-3">Hosted by</h3>
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white flex items-center justify-center text-lg font-medium">
-                  {event.host?.name?.charAt(0).toUpperCase() || "?"}
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-900">{event.host?.name}</p>
-                  <p className="text-sm text-gray-500">{event.host?.points || 0} points • {event.host?.badges?.length || 0} badges</p>
-                </div>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 overflow-hidden flex-shrink-0">
+                {event.host?.profilePhoto ? (
+                  <img
+                    src={`${import.meta.env.VITE_API_BASE_URL}${event.host.profilePhoto}`}
+                    alt={event.host?.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.style.display = "none";
+                      const parent = e.target.parentElement;
+                      const fallback = document.createElement("div");
+                      fallback.className =
+                        "w-full h-full flex items-center justify-center text-white text-lg font-medium";
+                      fallback.textContent =
+                        event.host?.name?.charAt(0).toUpperCase() || "?";
+                      parent.appendChild(fallback);
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-white text-lg font-medium">
+                    {event.host?.name?.charAt(0).toUpperCase() || "?"}
+                  </div>
+                )}
               </div>
+              <div>
+                <p className="font-semibold text-gray-900">{event.host?.name}</p>
+                <p className="text-sm text-gray-500">
+                  {event.host?.points || 0} points • {event.host?.badges?.length || 0} badges
+                </p>
+              </div>
+            </div>
             </div>
           </Card>
 

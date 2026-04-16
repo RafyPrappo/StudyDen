@@ -26,8 +26,25 @@ export const spotApi = {
     });
   },
 
+  getDirections: (id, params = {}) => {
+    const queryParams = new URLSearchParams();
+
+    if (params.startLat) queryParams.append("startLat", params.startLat);
+    if (params.startLng) queryParams.append("startLng", params.startLng);
+    if (params.profile) queryParams.append("profile", params.profile);
+
+    const queryString = queryParams.toString();
+
+    return api.get(
+      `/api/spots/${id}/directions${queryString ? `?${queryString}` : ""}`,
+      { credentials: "include" }
+    );
+  },
+
 
   getSpot: (id) => api.get(`/api/spots/${id}`),
+
+  getSpotAnalytics: (id) => api.get(`/api/spots/${id}/analytics`),
 
   createSpot: (data) => api.post("/api/spots", data, { credentials: "include" }),
 
@@ -40,6 +57,7 @@ export const spotApi = {
 
   getCheckInStatus: (id) =>
     api.get(`/api/spots/${id}/check-in-status`, { credentials: "include" }),
+
 
   getReviews: (id) => api.get(`/api/spots/${id}/reviews`),
 

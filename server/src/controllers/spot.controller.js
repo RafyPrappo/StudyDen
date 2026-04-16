@@ -129,6 +129,13 @@ const NOISE_LABELS = {
   5: "Very Noisy",
 };
 
+const getNearestLabel = (value, labels) => {
+  if (!value) return "N/A";
+
+  const rounded = Math.min(5, Math.max(1, Math.round(value)));
+  return labels[rounded] || "N/A";
+};
+
 const Spot = require("../models/Spot");
 const User = require("../models/User");
 
@@ -146,7 +153,7 @@ const ALLOWED_AMENITIES = [
 
 exports.createSpot = async (req, res, next) => {
   try {
-    const { title, type, description, address, amenities } = req.body;
+    const { title, type, description, address, amenities, lat, lng } = req.body;
 
     if (!title || !type || !address) {
       return res.status(400).json({
@@ -157,6 +164,17 @@ exports.createSpot = async (req, res, next) => {
     if (!["Public", "Private"].includes(type)) {
       return res.status(400).json({
         message: "Type must be Public or Private",
+      });
+    }
+
+    if (
+      lat === undefined ||
+      lng === undefined ||
+      Number.isNaN(Number(lat)) ||
+      Number.isNaN(Number(lng))
+    ) {
+      return res.status(400).json({
+        message: "Valid map coordinates are required",
       });
     }
 
@@ -186,9 +204,13 @@ exports.createSpot = async (req, res, next) => {
       address,
       amenities: normalizedAmenities,
       postedBy: req.user.id,
+      location: {
+        lat: Number(lat),
+        lng: Number(lng),
+      },
     });
 
-    await spot.populate("postedBy", "name email points badges profilePhoto");
+  await spot.populate("postedBy", "name email points badges profilePhoto");
 
   // Prappo: Award points for creating a spot ->
   const user = await User.findById(req.user.id);
@@ -216,7 +238,78 @@ exports.createSpot = async (req, res, next) => {
     next(err);
   }
 
+};
 
+const mongoose = require("mongoose");
+const axios = require("axios");
+
+exports.getSpotDirections = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { startLat, startLng, profile = "car" } = req.query;
+
+    const spot = await Spot.findById(id);
+
+    if (!spot || !spot.location) {
+      return res.status(404).json({ message: "Spot not found" });
+    }
+
+    const parsedStartLat = Number(startLat);
+    const parsedStartLng = Number(startLng);
+
+    if (Number.isNaN(parsedStartLat) || Number.isNaN(parsedStartLng)) {
+      return res.status(400).json({ message: "Invalid start location" });
+    }
+
+    if (
+      typeof spot.location.lat !== "number" ||
+      typeof spot.location.lng !== "number"
+    ) {
+      return res.status(200).json({
+        route: null,
+        message: "This spot has no coordinates.",
+      });
+    }
+
+    const profileMap = {
+      car: "car",
+      foot: "foot",
+      bike: "motorcycle",
+    };
+
+    const selected = profileMap[profile] || "car";
+
+    const url = `https://barikoi.xyz/v2/api/route/${parsedStartLng},${parsedStartLat};${spot.location.lng},${spot.location.lat}?api_key=${process.env.BARIKOI_API_KEY}&geometries=geojson&profile=${selected}`;
+
+    console.log("Routing URL:", url);
+
+    const response = await axios.get(url);
+
+    console.log("Barikoi response:", response.data);
+
+    const route =
+      response.data?.routes?.[0] ||
+      response.data?.route ||
+      response.data;
+
+    if (!route || !route.geometry) {
+      return res.status(200).json({
+        route: null,
+        message: "No route found",
+      });
+    }
+
+    res.json({
+      route: {
+        distance: route.distance || 0,
+        duration: route.duration || 0,
+        geometry: route.geometry,
+      },
+    });
+  } catch (err) {
+    console.error("Routing error:", err.response?.data || err.message);
+    next(err);
+  }
 };
 
 exports.getSpots = async (req, res, next) => {
@@ -253,7 +346,6 @@ exports.getSpots = async (req, res, next) => {
       filter.amenities = amenity;
     }
 
-    // Get all matching spots first
     const matchingSpots = await Spot.find(filter)
       .populate("postedBy", "name email points badges profilePhoto")
       .sort({ createdAt: -1 })
@@ -261,7 +353,6 @@ exports.getSpots = async (req, res, next) => {
 
     const spotIds = matchingSpots.map((spot) => spot._id);
 
-    // Aggregate ratings for those spots
     const ratingStats = await SpotReview.aggregate([
       {
         $match: {
@@ -287,7 +378,6 @@ exports.getSpots = async (req, res, next) => {
       ])
     );
 
-    // Attach rating info to each spot
     let enrichedSpots = matchingSpots.map((spot) => {
       const ratingInfo = ratingMap.get(spot._id.toString()) || {
         averageRating: 0,
@@ -301,7 +391,6 @@ exports.getSpots = async (req, res, next) => {
       };
     });
 
-    // Apply minimum rating filter if requested
     if (parsedMinRating !== null && !Number.isNaN(parsedMinRating)) {
       enrichedSpots = enrichedSpots.filter(
         (spot) => spot.averageRating >= parsedMinRating
@@ -418,7 +507,6 @@ exports.createSpotCheckIn = async (req, res, next) => {
       return res.status(404).json({ message: "Spot not found" });
     }
 
-    // Simple anti-spam: prevent repeated check-ins to the same spot within 10 minutes
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
     const recentCheckIn = await SpotCheckIn.findOne({
       spot: id,
@@ -489,6 +577,115 @@ exports.getSpotCheckInStatus = async (req, res, next) => {
             noiseLabel: NOISE_LABELS[myLatestCheckIn.noiseLevel],
           }
         : null,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getSpotAnalytics = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const spot = await Spot.findById(id);
+    if (!spot) {
+      return res.status(404).json({ message: "Spot not found" });
+    }
+
+    const spotObjectId = new mongoose.Types.ObjectId(id);
+
+    const [summaryResult, peakHourResult, last24HoursCount, last7DaysCount] =
+      await Promise.all([
+        SpotCheckIn.aggregate([
+          {
+            $match: {
+              spot: spotObjectId,
+            },
+          },
+          {
+            $group: {
+              _id: "$spot",
+              averageCrowdLevel: { $avg: "$crowdLevel" },
+              averageNoiseLevel: { $avg: "$noiseLevel" },
+              totalCheckIns: { $sum: 1 },
+              latestCheckInAt: { $max: "$checkedInAt" },
+            },
+          },
+        ]),
+        SpotCheckIn.aggregate([
+          {
+            $match: {
+              spot: spotObjectId,
+            },
+          },
+          {
+            $project: {
+              hour: { $hour: "$checkedInAt" },
+            },
+          },
+          {
+            $group: {
+              _id: "$hour",
+              count: { $sum: 1 },
+            },
+          },
+          {
+            $sort: {
+              count: -1,
+              _id: 1,
+            },
+          },
+          {
+            $limit: 1,
+          },
+        ]),
+        SpotCheckIn.countDocuments({
+          spot: id,
+          checkedInAt: {
+            $gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+          },
+        }),
+        SpotCheckIn.countDocuments({
+          spot: id,
+          checkedInAt: {
+            $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          },
+        }),
+      ]);
+
+    const summary = summaryResult[0] || null;
+    const peakHour = peakHourResult[0] || null;
+
+    res.json({
+      analytics: {
+        averageCrowdLevel: summary
+          ? Number(summary.averageCrowdLevel.toFixed(1))
+          : 0,
+        averageCrowdLabel: summary
+          ? getNearestLabel(summary.averageCrowdLevel, CROWD_LABELS)
+          : "N/A",
+        averageNoiseLevel: summary
+          ? Number(summary.averageNoiseLevel.toFixed(1))
+          : 0,
+        averageNoiseLabel: summary
+          ? getNearestLabel(summary.averageNoiseLevel, NOISE_LABELS)
+          : "N/A",
+        totalCheckIns: summary ? summary.totalCheckIns : 0,
+        latestCheckInAt: summary ? summary.latestCheckInAt : null,
+        peakHour: peakHour
+          ? {
+              hour: peakHour._id,
+              label: `${String(peakHour._id).padStart(2, "0")}:00 - ${String(
+                (peakHour._id + 1) % 24
+              ).padStart(2, "0")}:00`,
+              totalCheckIns: peakHour.count,
+            }
+          : null,
+        recentCheckIns: {
+          last24Hours: last24HoursCount,
+          last7Days: last7DaysCount,
+        },
+      },
     });
   } catch (err) {
     next(err);
