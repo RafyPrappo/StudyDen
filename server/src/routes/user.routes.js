@@ -12,7 +12,9 @@ const {
   markAllNotificationsRead,
   deleteNotification,
   getDitchStreak,
-  getCompletedEvents
+  getCompletedEvents,
+  getMyPreferences,
+  updateMyPreferences
 } = require("../controllers/user.controller");
 
 const router = express.Router();
@@ -58,5 +60,8 @@ router.delete("/notifications/:id", requireAuth, deleteNotification);
 
 router.get("/ditch-streak", requireAuth, getDitchStreak);
 router.get("/completed-events", requireAuth, getCompletedEvents);
+
+router.get("/preferences", requireAuth, getMyPreferences);
+router.put("/preferences", requireAuth, updateMyPreferences);
 
 module.exports = router;

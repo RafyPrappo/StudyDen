@@ -17,7 +17,9 @@ import {
   Loader2,
   Camera,
   Trash2,
-  AlertCircle
+  AlertCircle,
+  Settings,
+  SlidersHorizontal
 } from "lucide-react";
 
 const BADGE_ICONS = {
@@ -37,6 +39,19 @@ const BADGE_COLORS = {
   "Perfect Host": "bg-yellow-50 text-yellow-700 border-yellow-200",
   Dedicated: "bg-red-50 text-red-700 border-red-200"
 };
+const AMENITY_OPTIONS = [
+  "WiFi",
+  "Charging Points",
+  "AC",
+  "Quiet Zone",
+  "Snacks",
+  "Parking",
+  "Washroom",
+  "Group Seating",
+];
+
+const LEVEL_OPTIONS = [1, 2, 3, 4, 5];
+
 
 export default function ProfilePage() {
   const { userId } = useParams();
@@ -59,6 +74,15 @@ export default function ProfilePage() {
   const [ditchStreak, setDitchStreak] = useState({ currentStreak: 0, totalDitched: 0 });
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
+    const [showPreferencesBox, setShowPreferencesBox] = useState(false);
+  const [savingPreferences, setSavingPreferences] = useState(false);
+  const [preferencesError, setPreferencesError] = useState("");
+  const [preferencesForm, setPreferencesForm] = useState({
+    amenities: [],
+    crowdLevel: "",
+    noiseLevel: "",
+    minRating: "",
+  });
 
   const isOwnProfile = !userId || userId === currentUser?.id;
 
@@ -113,6 +137,66 @@ export default function ProfilePage() {
       setDitchStreak(data);
     } catch (err) {
       console.error("Failed to load ditch streak:", err);
+    }
+  };
+    const loadPreferences = async () => {
+    try {
+      setPreferencesError("");
+      const data = await userApi.getPreferences();
+
+      setPreferencesForm({
+        amenities: data.preferences?.amenities || [],
+        crowdLevel: data.preferences?.crowdLevel ?? "",
+        noiseLevel: data.preferences?.noiseLevel ?? "",
+        minRating: data.preferences?.minRating ?? "",
+      });
+    } catch (err) {
+      setPreferencesError("Failed to load preferences");
+      console.error("Failed to load preferences:", err);
+    }
+  };
+
+  const handleTogglePreferences = async () => {
+    const nextOpen = !showPreferencesBox;
+    setShowPreferencesBox(nextOpen);
+
+    if (nextOpen) {
+      await loadPreferences();
+    }
+  };
+
+  const handleAmenityToggle = (amenity) => {
+    setPreferencesForm((prev) => {
+      const exists = prev.amenities.includes(amenity);
+
+      return {
+        ...prev,
+        amenities: exists
+          ? prev.amenities.filter((item) => item !== amenity)
+          : [...prev.amenities, amenity],
+      };
+    });
+  };
+
+  const handleSavePreferences = async () => {
+    try {
+      setSavingPreferences(true);
+      setPreferencesError("");
+
+      await userApi.updatePreferences({
+        amenities: preferencesForm.amenities,
+        crowdLevel: preferencesForm.crowdLevel === "" ? null : Number(preferencesForm.crowdLevel),
+        noiseLevel: preferencesForm.noiseLevel === "" ? null : Number(preferencesForm.noiseLevel),
+        minRating: preferencesForm.minRating === "" ? null : Number(preferencesForm.minRating),
+      });
+
+      await fetchProfile();
+      setShowPreferencesBox(false);
+    } catch (err) {
+      setPreferencesError("Failed to save preferences");
+      console.error("Failed to save preferences:", err);
+    } finally {
+      setSavingPreferences(false);
     }
   };
 
@@ -264,7 +348,7 @@ export default function ProfilePage() {
                 <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 mx-auto overflow-hidden">
                   {profile.profilePhoto ? (
                     <img 
-                      src={`http://localhost:5000${profile.profilePhoto}`} 
+                      src={`${import.meta.env.VITE_API_BASE_URL}${profile.profilePhoto}`} 
                       alt={profile.name}
                       className="w-full h-full object-cover"
                       onError={(e) => {
@@ -473,6 +557,144 @@ export default function ProfilePage() {
                   <p className="text-gray-500 text-center py-8">No joined events yet.</p>
                 )}
               </div>
+                            {isOwnProfile && (
+                <div className="mt-8 border-t pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Study Spot Preferences</h3>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleTogglePreferences}
+                      className="inline-flex items-center gap-2"
+                    >
+                      <Settings size={16} />
+                      Set Preferences
+                    </Button>
+                  </div>
+
+                  {showPreferencesBox && (
+                    <div className="border rounded-xl p-5 bg-gray-50 space-y-5">
+                      {preferencesError && (
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                          {preferencesError}
+                        </div>
+                      )}
+
+                      <div>
+                        <p className="text-sm font-medium text-gray-800 mb-3">
+                          Amenities
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {AMENITY_OPTIONS.map((amenity) => {
+                            const selected = preferencesForm.amenities.includes(amenity);
+
+                            return (
+                              <button
+                                key={amenity}
+                                type="button"
+                                onClick={() => handleAmenityToggle(amenity)}
+                                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                                  selected
+                                    ? "bg-slate-800 text-white"
+                                    : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-100"
+                                }`}
+                              >
+                                {amenity}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-800 mb-2">
+                            Crowd Level
+                          </label>
+                          <select
+                            value={preferencesForm.crowdLevel}
+                            onChange={(e) =>
+                              setPreferencesForm((prev) => ({
+                                ...prev,
+                                crowdLevel: e.target.value,
+                              }))
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          >
+                            <option value="">Any</option>
+                            {LEVEL_OPTIONS.map((level) => (
+                              <option key={level} value={level}>
+                                {level}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-800 mb-2">
+                            Noise Level
+                          </label>
+                          <select
+                            value={preferencesForm.noiseLevel}
+                            onChange={(e) =>
+                              setPreferencesForm((prev) => ({
+                                ...prev,
+                                noiseLevel: e.target.value,
+                              }))
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          >
+                            <option value="">Any</option>
+                            {LEVEL_OPTIONS.map((level) => (
+                              <option key={level} value={level}>
+                                {level}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-800 mb-2">
+                            Minimum Rating
+                          </label>
+                          <select
+                            value={preferencesForm.minRating}
+                            onChange={(e) =>
+                              setPreferencesForm((prev) => ({
+                                ...prev,
+                                minRating: e.target.value,
+                              }))
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          >
+                            <option value="">Any</option>
+                            {LEVEL_OPTIONS.map((level) => (
+                              <option key={level} value={level}>
+                                {level}+
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end">
+                        <Button
+                          onClick={handleSavePreferences}
+                          disabled={savingPreferences}
+                          className="inline-flex items-center gap-2"
+                        >
+                          {savingPreferences ? (
+                            <Loader2 size={16} className="animate-spin" />
+                          ) : (
+                            <SlidersHorizontal size={16} />
+                          )}
+                          Save Preferences
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </Card>
           )}
 

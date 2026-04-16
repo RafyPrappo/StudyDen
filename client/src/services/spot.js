@@ -8,6 +8,7 @@ export const spotApi = {
     if (params.search) queryParams.append("search", params.search);
     if (params.amenity && params.amenity !== "All") queryParams.append("amenity", params.amenity);
     if (params.minRating && params.minRating !== "All") queryParams.append("minRating", params.minRating);
+    if (params.minRating && params.minRating !== "All") queryParams.append("minRating", params.minRating);
     if (params.page) queryParams.append("page", params.page);
     if (params.limit) queryParams.append("limit", params.limit);
 
@@ -55,6 +56,7 @@ export const spotApi = {
 
   getCheckInStatus: (id) =>
     api.get(`/api/spots/${id}/check-in-status`, { credentials: "include" }),
+
 
   getReviews: (id) => api.get(`/api/spots/${id}/reviews`),
 

@@ -19,6 +19,14 @@ const userSchema = new mongoose.Schema(
     dedicatedCount: { type: Number, default: 0 },
     joinedEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: "Event" }],
     completedEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: "Event" }],
+
+    preferences: {
+      amenities: [{ type: String }],
+      crowdLevel: { type: Number, min: 1, max: 5, default: null },
+      noiseLevel: { type: Number, min: 1, max: 5, default: null },
+      minRating: { type: Number, min: 1, max: 5, default: null },
+    },
+    
     createdAt: { type: Date, default: Date.now }
   },
   { timestamps: true }

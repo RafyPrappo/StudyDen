@@ -22,7 +22,6 @@ export default function EventsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [error, setError] = useState("");
-  const [removingEventIds, setRemovingEventIds] = useState([]);
 
   useEffect(() => {
     const event = new CustomEvent('navbar-events-page', { detail: location.pathname === '/events' });
@@ -40,25 +39,17 @@ export default function EventsPage() {
     try {
       setLoading(true);
       setError("");
-      
       const params = {
         topic: selectedTopic,
         page,
         limit: 9
       };
-
-      if (searchQuery) {
-        params.search = searchQuery;
-      }
-
+      if (searchQuery) params.search = searchQuery;
       const data = await eventApi.getEvents(params);
-      
       let filteredEvents = data.events || [];
-      
       if (selectedTopic === "Joined Events" && user) {
         filteredEvents = filteredEvents.filter(e => e.isAttending);
       }
-
       setEvents(filteredEvents);
       setTotalPages(data.pagination?.pages || 1);
     } catch (err) {
@@ -71,7 +62,7 @@ export default function EventsPage() {
 
   useEffect(() => {
     fetchEvents();
-  }, [selectedTopic, page]);
+  }, [selectedTopic, page, user]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -79,31 +70,24 @@ export default function EventsPage() {
     fetchEvents();
   };
 
-  const handleEventUpdate = () => {
-    fetchEvents();
-  };
-
-  const handleEventRemove = (eventId) => {
-    setRemovingEventIds(prev => [...prev, eventId]);
-    setTimeout(() => {
-      fetchEvents();
-      setTimeout(() => {
-        setRemovingEventIds(prev => prev.filter(id => id !== eventId));
-      }, 100);
-    }, 300);
+  const updateEventAttendStatus = (eventId, isAttending) => {
+    setEvents(prevEvents =>
+      prevEvents.map(ev =>
+        ev._id === eventId
+          ? { ...ev, isAttending, attendees: isAttending ? [...ev.attendees, user.id] : ev.attendees.filter(id => id !== user.id) }
+          : ev
+      )
+    );
   };
 
   return (
     <Container>
-      {/* Hero section with search */}
       <div className="mb-12">
         <div className="text-center max-w-2xl mx-auto">
           <h1 className="text-4xl font-bold text-gray-900 mb-3">Upcoming events</h1>
           <p className="text-gray-600 mb-8">
             Join workshops, networking sessions and community meetups
           </p>
-          
-          {/* Search bar */}
           <form onSubmit={handleSearch} className="flex gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
@@ -123,7 +107,6 @@ export default function EventsPage() {
         </div>
       </div>
 
-      {/* Topic filters */}
       <div className="flex justify-center gap-2 mb-10 overflow-x-auto pb-2 scrollbar-hide">
         {TOPICS.map((topic) => (
           <button
@@ -143,7 +126,6 @@ export default function EventsPage() {
         ))}
       </div>
 
-      {/* Error message */}
       {error && (
         <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex items-center gap-3">
           <span className="w-1 h-8 bg-red-500 rounded-full" />
@@ -151,7 +133,6 @@ export default function EventsPage() {
         </div>
       )}
 
-      {/* Events grid */}
       {loading ? (
         <div className="flex justify-center items-center h-64">
           <Loader2 size={36} className="text-blue-600 animate-spin" />
@@ -165,23 +146,13 @@ export default function EventsPage() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {events.map((event) => (
-              <div
-                key={event._id}
-                className={`transform transition-all duration-300 ${
-                  removingEventIds.includes(event._id)
-                    ? 'opacity-0 scale-95 pointer-events-none'
-                    : 'opacity-100 scale-100'
-                }`}
-              >
-                <EventCard 
-                  event={event} 
-                  onUpdate={() => handleEventRemove(event._id)}
-                />
-              </div>
+              <EventCard 
+                key={event._id} 
+                event={event} 
+                onJoinLeave={updateEventAttendStatus}
+              />
             ))}
           </div>
-
-          {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex justify-center gap-3 mt-10">
               <button
@@ -214,7 +185,6 @@ export default function EventsPage() {
         </>
       )}
 
-      {/* Create event modal */}
       {showCreateModal && (
         <CreateEventModal 
           onClose={() => setShowCreateModal(false)}
