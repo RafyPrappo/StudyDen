@@ -141,6 +141,7 @@ const ALLOWED_AMENITIES = [
   "Parking",
   "Washroom",
   "Group Seating",
+  "Smoking Zone",
 ];
 
 exports.createSpot = async (req, res, next) => {
