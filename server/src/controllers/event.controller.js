@@ -3,9 +3,7 @@ const Endorsement = require("../models/Endorsement");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
 const { PointsCalculator } = require("../utils/pointsCalculator");
-const axios = require("axios");
-
-let lastRequestTime = 0;
+const { geocodeAddress } = require("../services/barikoi.service");
 
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371e3;
@@ -22,61 +20,23 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-async function geocodeAddress(address) {
-  try {
-    console.log(`Geocoding address: ${address}`);
-    const response = await axios.get(
-      `https://nominatim.openstreetmap.org/search`,
-      {
-        params: { q: address, format: 'json', limit: 1, addressdetails: 1 },
-        headers: { 'User-Agent': 'StudyDen-App/1.0 (studyden@example.com)' },
-        timeout: 5000
-      }
-    );
-    if (!response.data || response.data.length === 0) {
-      throw new Error(`No results found for address: ${address}`);
-    }
-    const result = response.data[0];
-    return {
-      lat: parseFloat(result.lat),
-      lng: parseFloat(result.lon),
-      formattedAddress: result.display_name,
-      placeId: result.osm_id?.toString() || `osm_${Date.now()}`
-    };
-  } catch (err) {
-    console.error("Geocoding error:", err.message);
-    console.log("Using fallback coordinates for Dhaka");
-    return {
-      lat: 23.8103,
-      lng: 90.4125,
-      formattedAddress: address,
-      placeId: `fallback_${Date.now()}`
-    };
-  }
-}
-
-async function rateLimitedGeocode(address) {
-  const now = Date.now();
-  const timeSinceLastRequest = now - lastRequestTime;
-  if (timeSinceLastRequest < 1100) {
-    await new Promise(resolve => setTimeout(resolve, 1100 - timeSinceLastRequest));
-  }
-  lastRequestTime = Date.now();
-  return geocodeAddress(address);
-}
-
 exports.createEvent = async (req, res, next) => {
   try {
     const { title, topic, description, date, time, location, maxAttendees } = req.body;
+
     if (!title || !topic || !date || !time || !location || !maxAttendees) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    const geocodeResult = await rateLimitedGeocode(location);
+    const geocodeResult = await geocodeAddress(location);
+
     const event = await Event.create({
       title, topic, description,
       date: new Date(date), time, location,
-      coordinates: { lat: geocodeResult.lat, lng: geocodeResult.lng },
+      coordinates: {
+        lat: geocodeResult.lat,
+        lng: geocodeResult.lng
+      },
       formattedAddress: geocodeResult.formattedAddress,
       placeId: geocodeResult.placeId,
       maxAttendees,
@@ -84,7 +44,9 @@ exports.createEvent = async (req, res, next) => {
       pointsAwarded: false,
       hostPointsAwarded: false
     });
-    await event.populate("host", "name email points badges profilePhoto _id");
+
+    await event.populate("host", "name email points badges profilePhoto");
+
     res.status(201).json({ event });
   } catch (err) {
     next(err);
@@ -133,13 +95,29 @@ exports.getEvent = async (req, res, next) => {
     const event = await Event.findById(id)
       .populate("host", "name email points badges profilePhoto _id")
       .populate("attendees", "name email points badges profilePhoto");
+      
     if (!event) return res.status(404).json({ message: "Event not found" });
+    
     if (req.user) {
-      const isAttending = event.attendees.some(attendee => attendee._id.toString() === req.user.id);
-      event._doc.isAttending = isAttending;
-      event._doc.isFavorited = event.isUserFavorited(req.user.id);
-      event._doc.hasSynced = event.userCalendarEvents && event.userCalendarEvents.has(req.user.id);
+      const rawEvent = await Event.findById(id).select('attendees favorites userCalendarEvents');
+      if (rawEvent) {
+        event._doc.isAttending = rawEvent.attendees.some(
+          attId => attId.toString() === req.user.id
+        );
+        event._doc.isFavorited = rawEvent.favorites.some(
+          favId => favId.toString() === req.user.id
+        );
+        event._doc.hasSynced = rawEvent.userCalendarEvents && 
+                               rawEvent.userCalendarEvents.has(req.user.id);
+      } else {
+        event._doc.isAttending = false;
+        event._doc.isFavorited = false;
+        event._doc.hasSynced = false;
+      }
+    } else {
+      event._doc.hasSynced = false;
     }
+    
     res.json({ event });
   } catch (err) {
     next(err);
@@ -216,13 +194,17 @@ exports.leaveEvent = async (req, res, next) => {
       return res.status(400).json({ message: "Not attending this event" });
     }
 
-    // Remove from Google Calendar if synced
-    const { deleteCalendarEvent } = require("../services/calendar.service");
-    if (event.userCalendarEvents && event.userCalendarEvents.has(req.user.id)) {
-      const calendarEventId = event.userCalendarEvents.get(req.user.id);
-      await deleteCalendarEvent(req.user.id, calendarEventId);
-      event.userCalendarEvents.delete(req.user.id);
-      await event.save();
+    // Remove from Google Calendar if synced (robust error handling)
+    try {
+      const { deleteCalendarEvent } = require("../services/calendar.service");
+      if (event.userCalendarEvents && event.userCalendarEvents.has(req.user.id)) {
+        const calendarEventId = event.userCalendarEvents.get(req.user.id);
+        await deleteCalendarEvent(req.user.id, calendarEventId);
+        event.userCalendarEvents.delete(req.user.id);
+      }
+    } catch (err) {
+      console.error("Failed to delete calendar event during leave:", err.message);
+      // Continue even if deletion fails
     }
 
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -307,17 +289,20 @@ exports.deleteEvent = async (req, res, next) => {
       return res.json({ message: "Event already cancelled" });
     }
 
-    // Remove from Google Calendar for all users who synced
-    const { deleteCalendarEvent } = require("../services/calendar.service");
-    if (event.userCalendarEvents && event.userCalendarEvents.size > 0) {
-      for (const [userId, calendarEventId] of event.userCalendarEvents.entries()) {
-        try {
-          await deleteCalendarEvent(userId, calendarEventId);
-          console.log(`Deleted calendar event for user ${userId}`);
-        } catch (err) {
-          console.error(`Failed to delete calendar event for user ${userId}:`, err.message);
+    // Remove from Google Calendar for all users who synced (robust error handling)
+    try {
+      const { deleteCalendarEvent } = require("../services/calendar.service");
+      if (event.userCalendarEvents && event.userCalendarEvents.size > 0) {
+        for (const [userId, calendarEventId] of event.userCalendarEvents.entries()) {
+          try {
+            await deleteCalendarEvent(userId, calendarEventId);
+          } catch (err) {
+            console.error(`Failed to delete calendar event for user ${userId}:`, err.message);
+          }
         }
       }
+    } catch (err) {
+      console.error("Calendar deletion error during event cancellation:", err);
     }
 
     const now = new Date();
@@ -410,7 +395,6 @@ exports.completeEvent = async (req, res, next) => {
 };
 
 exports.trackLocation = async (req, res, next) => {
-  // ... keep your existing implementation (unchanged)
   try {
     const { id } = req.params;
     const { lat, lng } = req.body;
@@ -532,7 +516,6 @@ exports.trackLocation = async (req, res, next) => {
 };
 
 exports.getEventStatus = async (req, res, next) => {
-  // ... unchanged
   try {
     const { id } = req.params;
     const event = await Event.findById(id)
@@ -564,7 +547,6 @@ exports.getEventStatus = async (req, res, next) => {
 };
 
 exports.markAttendance = async (req, res, next) => {
-  // ... unchanged
   try {
     const { id } = req.params;
     const { attendeeIds } = req.body;
@@ -588,7 +570,6 @@ exports.markAttendance = async (req, res, next) => {
 };
 
 exports.submitEndorsement = async (req, res, next) => {
-  // ... unchanged
   try {
     const { id } = req.params;
     const { endorsed } = req.body;

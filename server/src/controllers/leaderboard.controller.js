@@ -6,10 +6,11 @@ exports.getLeaderboard = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const users = await User.find({ role: { $ne: "admin" } })
-      .select("name email points badges profilePhoto updatedAt")
+      .select("name email points badges profilePhoto")
       .sort({ points: -1, updatedAt: 1 })
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(parseInt(limit))
+      .lean();
 
     const total = await User.countDocuments({ role: { $ne: "admin" } });
 
@@ -20,7 +21,8 @@ exports.getLeaderboard = async (req, res, next) => {
       email: user.email,
       points: user.points,
       badges: user.badges || [],
-      profilePhoto: user.profilePhoto || ""
+      profilePhoto: user.profilePhoto || "",
+      role: user.role
     }));
 
     res.json({
@@ -42,9 +44,22 @@ exports.getUserRank = async (req, res, next) => {
   try {
     const { userId } = req.params;
 
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select("name points badges profilePhoto role").lean();
     if (!user) {
       return res.status(404).json({ message: "User not found" });
+    }
+
+    // Admins are excluded from ranking
+    if (user.role === "admin") {
+      return res.json({
+        userId: user._id,
+        name: user.name,
+        points: user.points,
+        badges: user.badges || [],
+        profilePhoto: user.profilePhoto || "",
+        rank: null,
+        total: await User.countDocuments({ role: { $ne: "admin" } })
+      });
     }
 
     const rank = await User.countDocuments({ 
@@ -71,13 +86,14 @@ exports.getUserRank = async (req, res, next) => {
 
 exports.getMyRank = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id).select("name points badges profilePhoto role").lean();
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
     if (user.role === "admin") {
       return res.json({
+        name: user.name,
         points: user.points,
         badges: user.badges || [],
         profilePhoto: user.profilePhoto || "",
@@ -94,6 +110,7 @@ exports.getMyRank = async (req, res, next) => {
     const total = await User.countDocuments({ role: { $ne: "admin" } });
 
     res.json({
+      name: user.name,
       points: user.points,
       badges: user.badges || [],
       profilePhoto: user.profilePhoto || "",

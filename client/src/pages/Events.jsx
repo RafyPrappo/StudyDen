@@ -6,7 +6,7 @@ import Button from "../components/ui/Button";
 import EventCard from "../components/events/EventCard";
 import CreateEventModal from "../components/events/CreateEventModal";
 import { eventApi } from "../services/event";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, Plus } from "lucide-react";
 
 const TOPICS = ["All", "Design", "Development", "Academic", "Nature", "Other", "Joined Events"];
 
@@ -183,6 +183,17 @@ export default function EventsPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Floating Action Button (FAB) for creating events – only visible when logged in and on events page */}
+      {user && (
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-700 hover:scale-105 transition-all duration-200 z-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          aria-label="Create event"
+        >
+          <Plus size={28} />
+        </button>
       )}
 
       {showCreateModal && (

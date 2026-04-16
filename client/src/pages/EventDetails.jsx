@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { usePoints } from "../context/PointsContext";
@@ -7,7 +7,16 @@ import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import { eventApi } from "../services/event";
 import { calendarApi } from "../services/calendar";
-import { Heart, Share2, Calendar } from "lucide-react";
+import { Heart, Share2, Calendar, MapPin, Navigation } from "lucide-react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
+  iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
+  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+});
 
 const TOPIC_COLORS = {
   Design: "bg-purple-100 text-purple-700 border-purple-200",
@@ -32,10 +41,87 @@ export default function EventDetails() {
   const [showAuthMessage, setShowAuthMessage] = useState(false);
   const [hasSynced, setHasSynced] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  
+  const [calendarConnected, setCalendarConnected] = useState(false);
+  const [checkingConnection, setCheckingConnection] = useState(true);
+
+  // Map refs
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
 
   useEffect(() => {
     fetchEvent();
   }, [id]);
+
+  useEffect(() => {
+    if (!user) {
+      setCheckingConnection(false);
+      return;
+    }
+    
+    const checkConnection = async () => {
+      try {
+        const { connected } = await calendarApi.checkConnection();
+        setCalendarConnected(connected);
+      } catch (err) {
+        console.error('Failed to check calendar connection:', err);
+        setCalendarConnected(false);
+      } finally {
+        setCheckingConnection(false);
+      }
+    };
+    checkConnection();
+  }, [user]);
+
+  useEffect(() => {
+    const handleMessage = (event) => {
+      if (event.data && event.data.type === 'CALENDAR_CONNECTED') {
+        if (event.data.success) {
+          setCalendarConnected(true);
+          setShowAuthMessage(false);
+          handleSyncToCalendar();
+        } else {
+          alert('Failed to connect Google Calendar. Please try again.');
+        }
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Initialize map when event data is loaded
+  useEffect(() => {
+    if (!event?.coordinates || !mapContainerRef.current) return;
+    
+    // Clean up previous map if exists
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
+    }
+
+    const map = L.map(mapContainerRef.current).setView([event.coordinates.lat, event.coordinates.lng], 15);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; CartoDB',
+      subdomains: "abcd",
+      maxZoom: 19,
+    }).addTo(map);
+    
+    L.marker([event.coordinates.lat, event.coordinates.lng])
+      .addTo(map)
+      .bindPopup(`<b>${event.title}</b><br>${event.location}`)
+      .openPopup();
+    
+    mapInstanceRef.current = map;
+
+    // Cleanup on unmount
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [event]);
 
   const fetchEvent = async () => {
     try {
@@ -88,6 +174,11 @@ export default function EventDetails() {
   };
 
   const handleSyncToCalendar = async () => {
+    if (!calendarConnected) {
+      setShowAuthMessage(true);
+      return;
+    }
+    
     setSyncing(true);
     setShowAuthMessage(false);
     try {
@@ -97,13 +188,12 @@ export default function EventDetails() {
         alert('Event synced to Google Calendar!');
         setHasSynced(true);
         fetchEvent();
-      } else if (data.authRequired) {
-        setShowAuthMessage(true);
       } else {
         alert('Failed to sync. Please try again.');
       }
     } catch (err) {
       if (err.status === 401) {
+        setCalendarConnected(false);
         setShowAuthMessage(true);
       } else {
         alert('Failed to sync. Please try again.');
@@ -116,21 +206,46 @@ export default function EventDetails() {
   const connectCalendar = () => {
     calendarApi.connectCalendar();
     setShowAuthMessage(false);
-    alert('After granting permission, please click "Sync to Google Calendar" again.');
   };
 
   const handleLeave = async () => {
     if (!window.confirm("Are you sure you want to leave this event?")) return;
     setLeaving(true);
     try {
+      // Remove calendar sync if exists
       if (hasSynced) {
-        await eventApi.removeCalendarEvent(id);
+        try {
+          await eventApi.removeCalendarEvent(id);
+        } catch (err) {
+          console.error("Failed to remove calendar event:", err);
+        }
       }
       await eventApi.leaveEvent(id);
       navigate("/events");
     } catch (err) {
       setError(err.message || "Failed to leave event");
       setLeaving(false);
+    }
+  };
+
+  const handleJoin = async () => {
+    if (!user) {
+      navigate("/login", { state: { from: `/events/${id}` } });
+      return;
+    }
+    try {
+      await eventApi.joinEvent(id);
+      fetchEvent();
+    } catch (err) {
+      setError(err.message || "Failed to join event");
+    }
+  };
+
+  const openDirections = () => {
+    if (event?.coordinates) {
+      const { lat, lng } = event.coordinates;
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+      window.open(url, '_blank');
     }
   };
 
@@ -157,13 +272,10 @@ export default function EventDetails() {
     );
   }
 
-  const userId = user?.id || user?._id;
+  const userId = user?._id || user?.id;
   const hostId = event.host?._id;
-  const isHost = userId && hostId && userId === hostId;
-  
-  // Compute isAttending manually from attendees array as a fallback
-  const isAttending = event.isAttending || (user && event.attendees?.some(a => a._id === userId));
-  
+  const isHost = !!(userId && hostId && userId === hostId);
+  const isAttending = event.isAttending === true;
   const isFull = event.attendees?.length >= event.maxAttendees;
   const spotsText = `${event.attendees?.length || 0}/${event.maxAttendees} spots filled`;
   const spotsColor = isFull ? "text-red-600" : "text-green-600";
@@ -176,6 +288,7 @@ export default function EventDetails() {
   });
 
   const showSyncButton = user && (isHost || isAttending) && !hasSynced;
+  const showConnectButton = showSyncButton && !calendarConnected && !checkingConnection;
 
   return (
     <Container>
@@ -194,10 +307,10 @@ export default function EventDetails() {
                 {event.topic}
               </span>
               <div className="flex gap-2">
-                <button onClick={handleShare} className="text-gray-400 hover:text-blue-600 transition p-1 hover:bg-blue-50 rounded" title="Share event">
+                <button onClick={handleShare} className="text-gray-400 hover:text-blue-600 transition p-1 hover:bg-blue-50 rounded">
                   <Share2 size={18} />
                 </button>
-                <button onClick={handleFavorite} className={`transition p-1 hover:bg-red-50 rounded ${isFavorited ? "text-red-500" : "text-gray-400 hover:text-red-500"}`} title={isFavorited ? "Remove from favorites" : "Add to favorites"}>
+                <button onClick={handleFavorite} className={`transition p-1 hover:bg-red-50 rounded ${isFavorited ? "text-red-500" : "text-gray-400 hover:text-red-500"}`}>
                   <Heart size={18} fill={isFavorited ? "currentColor" : "none"} />
                 </button>
               </div>
@@ -221,41 +334,19 @@ export default function EventDetails() {
 
             <div className="border-t pt-4">
               <h3 className="text-lg font-semibold mb-3">Hosted by</h3>
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 overflow-hidden flex-shrink-0">
-                {event.host?.profilePhoto ? (
-                  <img
-                    src={`${import.meta.env.VITE_API_BASE_URL}${event.host.profilePhoto}`}
-                    alt={event.host?.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.style.display = "none";
-                      const parent = e.target.parentElement;
-                      const fallback = document.createElement("div");
-                      fallback.className =
-                        "w-full h-full flex items-center justify-center text-white text-lg font-medium";
-                      fallback.textContent =
-                        event.host?.name?.charAt(0).toUpperCase() || "?";
-                      parent.appendChild(fallback);
-                    }}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-white text-lg font-medium">
-                    {event.host?.name?.charAt(0).toUpperCase() || "?"}
-                  </div>
-                )}
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white flex items-center justify-center text-lg font-medium">
+                  {event.host?.name?.charAt(0).toUpperCase() || "?"}
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">{event.host?.name}</p>
+                  <p className="text-sm text-gray-500">{event.host?.points || 0} points • {event.host?.badges?.length || 0} badges</p>
+                </div>
               </div>
-              <div>
-                <p className="font-semibold text-gray-900">{event.host?.name}</p>
-                <p className="text-sm text-gray-500">
-                  {event.host?.points || 0} points • {event.host?.badges?.length || 0} badges
-                </p>
-              </div>
-            </div>
             </div>
           </Card>
 
+          {/* Attendees Section */}
           <Card className="p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Attendees ({event.attendees?.length || 0})</h3>
@@ -278,6 +369,7 @@ export default function EventDetails() {
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Action Card */}
           <Card className="p-6">
             <div className="text-center mb-4">
               <span className={`text-2xl font-bold ${spotsColor}`}>{event.attendees?.length || 0}/{event.maxAttendees}</span>
@@ -289,13 +381,21 @@ export default function EventDetails() {
                 <Button variant="ghost" className="w-full text-red-600 border-red-200 hover:bg-red-50" onClick={handleCancel}>Cancel Event</Button>
                 {showSyncButton && (
                   <>
-                    <Button onClick={handleSyncToCalendar} disabled={syncing} className="w-full mt-2" variant="ghost">
-                      {syncing ? "Syncing..." : "Sync to Google Calendar"}
-                    </Button>
-                    {showAuthMessage && (
-                      <p className="text-xs text-center mt-2">
-                        <button onClick={connectCalendar} className="text-blue-600 underline">Click here to connect your Google Calendar first</button>
-                      </p>
+                    {showConnectButton ? (
+                      <>
+                        <Button onClick={connectCalendar} variant="ghost" className="w-full mt-2">
+                          Connect Google Calendar
+                        </Button>
+                        {showAuthMessage && (
+                          <p className="text-xs text-center mt-2 text-gray-500">
+                            Click the button above to connect your Google Calendar first.
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <Button onClick={handleSyncToCalendar} disabled={syncing} className="w-full mt-2" variant="ghost">
+                        {syncing ? "Syncing..." : "Sync to Google Calendar"}
+                      </Button>
                     )}
                   </>
                 )}
@@ -309,20 +409,30 @@ export default function EventDetails() {
               </div>
             ) : (
               <div className="space-y-2">
-                {isAttending && (
+                {!isAttending ? (
+                  <Button onClick={handleJoin} className="w-full" variant="primary">Join Event</Button>
+                ) : (
                   <Button onClick={handleLeave} disabled={leaving} variant="ghost" className="w-full text-red-600 border-red-200 hover:bg-red-50">
                     {leaving ? "Leaving..." : "Leave Event"}
                   </Button>
                 )}
                 {showSyncButton && (
                   <>
-                    <Button onClick={handleSyncToCalendar} disabled={syncing} className="w-full mt-2" variant="ghost">
-                      {syncing ? "Syncing..." : "Sync to Google Calendar"}
-                    </Button>
-                    {showAuthMessage && (
-                      <p className="text-xs text-center mt-2">
-                        <button onClick={connectCalendar} className="text-blue-600 underline">Click here to connect your Google Calendar first</button>
-                      </p>
+                    {showConnectButton ? (
+                      <>
+                        <Button onClick={connectCalendar} variant="ghost" className="w-full mt-2">
+                          Connect Google Calendar
+                        </Button>
+                        {showAuthMessage && (
+                          <p className="text-xs text-center mt-2 text-gray-500">
+                            Click the button above to connect your Google Calendar first.
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <Button onClick={handleSyncToCalendar} disabled={syncing} className="w-full mt-2" variant="ghost">
+                        {syncing ? "Syncing..." : "Sync to Google Calendar"}
+                      </Button>
                     )}
                   </>
                 )}
@@ -343,24 +453,24 @@ export default function EventDetails() {
             )}
           </Card>
 
-          <Card className="p-6">
-            <h3 className="font-semibold mb-3">Location</h3>
-            <p className="text-sm text-gray-700 mb-2">{event.location}</p>
-            <div className="bg-gray-100 h-32 rounded-lg flex items-center justify-center text-gray-400">Map will be displayed here</div>
+          {/* Map Card */}
+          <Card className="p-4">
+            <h3 className="text-md font-semibold mb-2 flex items-center gap-2">
+              <MapPin size={16} className="text-gray-600" />
+              Location
+            </h3>
+            <div ref={mapContainerRef} style={{ height: "200px", width: "100%", borderRadius: "8px", marginBottom: "8px" }}></div>
+            <div className="flex justify-between items-center gap-2">
+              <p className="text-xs text-gray-600 truncate flex-1">{event.location}</p>
+              <button
+                onClick={openDirections}
+                className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition flex-shrink-0"
+              >
+                <Navigation size={12} />
+                Directions
+              </button>
+            </div>
           </Card>
-
-          {event.status === "ongoing" && (
-            <Card className="p-6 bg-green-50 border-green-200">
-              <h3 className="font-semibold text-green-800 mb-2">Event Ongoing</h3>
-              <p className="text-sm text-green-700">{event.hostPresent ? "Host is present" : "Waiting for host..."}</p>
-            </Card>
-          )}
-          {event.status === "cancelled" && (
-            <Card className="p-6 bg-red-50 border-red-200">
-              <h3 className="font-semibold text-red-800 mb-2">Event Cancelled</h3>
-              <p className="text-sm text-red-700">This event has been cancelled by the host.</p>
-            </Card>
-          )}
         </div>
       </div>
     </Container>

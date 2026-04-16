@@ -5,6 +5,8 @@ import Container from "../components/ui/Container";
 import { leaderboardApi } from "../services/points";
 import { Link } from "react-router-dom";
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:9120";
+
 const BADGE_ICONS = {
   Explorer: "🌍",
   Critic: "📝",
@@ -46,7 +48,7 @@ export default function Leaderboard() {
       setError("");
       const data = await leaderboardApi.getLeaderboard(page, 10);
       
-      const filteredUsers = data.users?.filter(u => u.role !== "admin") || [];
+      const filteredUsers = (data.users || []).filter(u => u.role !== "admin");
       setUsers(filteredUsers);
       setTotalPages(data.pagination?.pages || 1);
       setTotalUsers(data.pagination?.total || 0);
@@ -86,26 +88,31 @@ export default function Leaderboard() {
         </p>
       </div>
 
+      {/* Your Ranking Card - FIXED: always show rank number, profile photo separate */}
       {user && userRank && user.role !== "admin" && (
         <Card className="mb-6 p-4 bg-blue-50/50 border border-blue-100">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-sm overflow-hidden">
-                {user.profilePhoto ? (
-                  <img 
-                    src={`http://localhost:9120${user.profilePhoto}`} 
-                    alt={user.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span>#{userRank.rank}</span>
-                )}
+              {/* Circle shows RANK NUMBER only */}
+              <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                #{userRank.rank}
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Your Ranking</p>
-                <p className="text-xl font-semibold text-gray-900">
-                  {user.name} • {userRank.points} points
-                </p>
+              <div className="flex items-center gap-3">
+                {/* Profile photo shown separately if exists */}
+                {userRank.profilePhoto && (
+                  <img 
+                    src={`${API_BASE}${userRank.profilePhoto}`}
+                    alt={userRank.name}
+                    className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                    onError={(e) => { e.target.style.display = "none"; }}
+                  />
+                )}
+                <div>
+                  <p className="text-sm text-gray-600">Your Ranking</p>
+                  <p className="text-xl font-semibold text-gray-900">
+                    {userRank.name} • {userRank.points} points
+                  </p>
+                </div>
               </div>
             </div>
             <div className="flex gap-2">
@@ -152,9 +159,17 @@ export default function Leaderboard() {
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 overflow-hidden flex-shrink-0">
                         {userItem.profilePhoto ? (
                           <img 
-                            src={`http://localhost:9120${userItem.profilePhoto}`} 
+                            src={`${API_BASE}${userItem.profilePhoto}`}
                             alt={userItem.name}
                             className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = "none";
+                              const parent = e.target.parentElement;
+                              const fallback = document.createElement("div");
+                              fallback.className = "w-full h-full flex items-center justify-center text-white font-medium text-sm";
+                              fallback.textContent = userItem.name.charAt(0).toUpperCase();
+                              parent.appendChild(fallback);
+                            }}
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-white font-medium text-sm">

@@ -68,6 +68,7 @@ exports.uploadProfilePhoto = async (req, res, next) => {
 
     const photoUrl = `/uploads/${req.file.filename}`;
     
+    // Delete old photo if exists
     const oldUser = await User.findById(req.user.id);
     if (oldUser.profilePhoto) {
       const oldFilename = oldUser.profilePhoto.split('/').pop();
@@ -108,24 +109,17 @@ exports.removeProfilePhoto = async (req, res, next) => {
     }
 
     if (user.profilePhoto) {
-      // Get just the filename from the stored path
       const filename = user.profilePhoto.replace('/uploads/', '');
       const filepath = path.join(__dirname, '../../uploads', filename);
-      
-      console.log("Attempting to delete file:", filepath);
       
       try {
         if (fs.existsSync(filepath)) {
           fs.unlinkSync(filepath);
           console.log("Successfully deleted file:", filepath);
-        } else {
-          console.log("File does not exist:", filepath);
         }
       } catch (err) {
         console.error("Error deleting file:", err);
       }
-    } else {
-      console.log("No profile photo to delete");
     }
 
     user.profilePhoto = "";
@@ -143,6 +137,7 @@ exports.removeProfilePhoto = async (req, res, next) => {
   }
 };
 
+// ... keep the rest of your existing functions (getNotifications, etc.) exactly as they were ...
 exports.getNotifications = async (req, res, next) => {
   try {
     const { page = 1, limit = 20 } = req.query;
@@ -275,6 +270,7 @@ exports.getCompletedEvents = async (req, res, next) => {
     next(err);
   }
 };
+
 exports.getMyPreferences = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id).select("preferences");

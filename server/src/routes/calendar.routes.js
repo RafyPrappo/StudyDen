@@ -4,7 +4,7 @@ const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs');
 const Event = require('../models/Event');
-const { createCalendarEvent, saveCredentials } = require('../services/calendar.service');
+const { createCalendarEvent, saveCredentials, hasCredentials } = require('../services/calendar.service');
 
 const router = express.Router();
 const CREDENTIALS_PATH = path.join(__dirname, '../../credentials.json');
@@ -24,7 +24,6 @@ try {
   console.error('❌ Failed to load credentials.json:', err.message);
 }
 
-// Start OAuth flow
 router.get('/auth', requireAuth, (req, res) => {
   if (!oauth2Client) {
     return res.status(500).json({ message: 'Calendar service not configured' });
@@ -38,7 +37,6 @@ router.get('/auth', requireAuth, (req, res) => {
   res.redirect(authUrl);
 });
 
-// OAuth callback
 router.get('/auth/callback', async (req, res) => {
   const { code, state: userId } = req.query;
   if (!code) return res.status(400).send('Missing authorization code');
@@ -50,16 +48,41 @@ router.get('/auth/callback', async (req, res) => {
       <html><body>
         <h2>✅ Calendar Connected!</h2>
         <p>You can close this window and return to StudyDen.</p>
-        <script>window.close();</script>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({ type: 'CALENDAR_CONNECTED', success: true }, '*');
+          }
+          window.close();
+        </script>
       </body></html>
     `);
   } catch (err) {
     console.error('Token exchange error:', err);
-    res.status(500).send('Failed to connect calendar');
+    res.status(500).send(`
+      <html><body>
+        <h2>❌ Connection Failed</h2>
+        <p>${err.message}</p>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({ type: 'CALENDAR_CONNECTED', success: false, error: '${err.message}' }, '*');
+          }
+          window.close();
+        </script>
+      </body></html>
+    `);
   }
 });
 
-// Sync event to Google Calendar
+router.get('/status', requireAuth, async (req, res) => {
+  try {
+    const connected = await hasCredentials(req.user.id);
+    res.json({ connected });
+  } catch (err) {
+    console.error('Status check error:', err);
+    res.status(500).json({ connected: false, error: err.message });
+  }
+});
+
 router.post('/sync/:eventId', requireAuth, async (req, res) => {
   try {
     const event = await Event.findById(req.params.eventId);
@@ -71,6 +94,10 @@ router.post('/sync/:eventId', requireAuth, async (req, res) => {
     const isAttendee = event.attendees.some(id => id.toString() === req.user.id);
     if (!isHost && !isAttendee) {
       return res.status(403).json({ message: 'You must be host or attendee to sync this event' });
+    }
+
+    if (event.userCalendarEvents && event.userCalendarEvents.has(req.user.id)) {
+      return res.json({ message: 'Already synced', link: event.userCalendarEvents.get(req.user.id) });
     }
 
     const result = await createCalendarEvent(req.user.id, {
@@ -90,18 +117,14 @@ router.post('/sync/:eventId', requireAuth, async (req, res) => {
       if (result.error === 'User not authenticated with Google Calendar') {
         res.status(401).json({ authRequired: true });
       } else {
+        console.error('Sync error:', result.error);
         res.status(500).json({ message: 'Failed to sync', error: result.error });
       }
     }
   } catch (err) {
-    console.error(err);
+    console.error('Sync endpoint error:', err);
     res.status(500).json({ message: 'Sync failed', error: err.message });
   }
-});
-
-// Test route
-router.get('/test', (req, res) => {
-  res.json({ message: 'Calendar routes are working' });
 });
 
 module.exports = router;
