@@ -403,7 +403,7 @@ export default function SpotDetails() {
   return (
     <Container>
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between gap-3 mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
           <Link to="/spots">
             <Button variant="ghost">
               <ArrowLeft size={16} />
@@ -521,7 +521,7 @@ export default function SpotDetails() {
                 </div>
 
                 <div className="relative rounded-xl overflow-hidden border border-gray-200">
-                  <div className="absolute top-3 left-3 z-10 flex gap-2">
+                  <div className="absolute top-3 left-3 z-10 flex flex-wrap gap-2 max-w-[90%]">
                     <button
                       type="button"
                       onClick={() => setSelectedProfile("car")}
