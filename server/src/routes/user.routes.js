@@ -14,7 +14,11 @@ const {
   getDitchStreak,
   getCompletedEvents,
   getMyPreferences,
-  updateMyPreferences
+  updateMyPreferences,
+  toggleFavouriteSpot,
+  getFavouriteSpots,
+  getVisitedSpots,
+  getFrequentSpots,
 } = require("../controllers/user.controller");
 
 const router = express.Router();
@@ -63,5 +67,10 @@ router.get("/completed-events", requireAuth, getCompletedEvents);
 
 router.get("/preferences", requireAuth, getMyPreferences);
 router.put("/preferences", requireAuth, updateMyPreferences);
+
+router.post("/favourites/:spotId", requireAuth, toggleFavouriteSpot);
+router.get("/favourites", requireAuth, getFavouriteSpots);
+router.get("/visited-spots", requireAuth, getVisitedSpots);
+router.get("/frequent-spots", requireAuth, getFrequentSpots);
 
 module.exports = router;

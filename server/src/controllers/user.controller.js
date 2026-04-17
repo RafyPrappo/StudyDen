@@ -3,6 +3,9 @@ const Event = require("../models/Event");
 const Notification = require("../models/Notification");
 const fs = require("fs");
 const path = require("path");
+const Spot = require("../models/Spot");
+const SpotCheckIn = require("../models/SpotCheckIn");
+const mongoose = require("mongoose");
 
 exports.getProfile = async (req, res, next) => {
   try {
@@ -363,6 +366,168 @@ exports.updateMyPreferences = async (req, res, next) => {
     res.json({
       message: "Preferences saved successfully",
       preferences: user.preferences,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.toggleFavouriteSpot = async (req, res, next) => {
+  try {
+    const { spotId } = req.params;
+
+    const spot = await Spot.findById(spotId);
+    if (!spot) {
+      return res.status(404).json({ message: "Spot not found" });
+    }
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const existingIndex = user.favouriteSpots.findIndex(
+      (id) => id.toString() === spotId
+    );
+
+    let isFavourite = false;
+
+    if (existingIndex > -1) {
+      user.favouriteSpots.splice(existingIndex, 1);
+      isFavourite = false;
+    } else {
+      user.favouriteSpots.push(spotId);
+      isFavourite = true;
+    }
+
+    await user.save();
+
+    res.json({
+      message: isFavourite
+        ? "Spot added to favourites"
+        : "Spot removed from favourites",
+      isFavourite,
+      favourites: user.favouriteSpots,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getFavouriteSpots = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).populate({
+      path: "favouriteSpots",
+      populate: {
+        path: "postedBy",
+        select: "name email points badges profilePhoto",
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({
+      spots: user.favouriteSpots || [],
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getVisitedSpots = async (req, res, next) => {
+  try {
+    const visits = await SpotCheckIn.find({ user: req.user.id })
+      .populate({
+        path: "spot",
+        populate: {
+          path: "postedBy",
+          select: "name email points badges profilePhoto",
+        },
+      })
+      .sort({ checkedInAt: -1 });
+
+    const uniqueSpots = [];
+    const seenSpotIds = new Set();
+
+    for (const visit of visits) {
+      const spotId = visit.spot?._id?.toString();
+
+      if (spotId && !seenSpotIds.has(spotId)) {
+        seenSpotIds.add(spotId);
+        uniqueSpots.push(visit.spot);
+      }
+    }
+
+    res.json({
+      spots: uniqueSpots,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getFrequentSpots = async (req, res, next) => {
+  try {
+    const frequentData = await SpotCheckIn.aggregate([
+      {
+        $match: {
+          user: new mongoose.Types.ObjectId(req.user.id),
+        },
+      },
+      {
+        $group: {
+          _id: "$spot",
+          visitCount: { $sum: 1 },
+          lastVisitedAt: { $max: "$checkedInAt" },
+        },
+      },
+      {
+        $sort: {
+          visitCount: -1,
+          lastVisitedAt: -1,
+        },
+      },
+      {
+        $limit: 10,
+      },
+    ]);
+
+    const spotIds = frequentData.map((item) => item._id);
+
+    const spots = await Spot.find({ _id: { $in: spotIds } })
+      .populate("postedBy", "name email points badges profilePhoto")
+      .lean();
+
+    const countMap = new Map(
+      frequentData.map((item) => [
+        item._id.toString(),
+        {
+          visitCount: item.visitCount,
+          lastVisitedAt: item.lastVisitedAt,
+        },
+      ])
+    );
+
+    const enrichedSpots = spotIds
+      .map((spotId) => {
+        const spot = spots.find((s) => s._id.toString() === spotId.toString());
+        if (!spot) return null;
+
+        const stats = countMap.get(spotId.toString());
+
+        return {
+          ...spot,
+          visitCount: stats?.visitCount || 0,
+          lastVisitedAt: stats?.lastVisitedAt || null,
+        };
+      })
+      .filter(Boolean);
+
+    res.json({
+      spots: enrichedSpots,
     });
   } catch (err) {
     next(err);
