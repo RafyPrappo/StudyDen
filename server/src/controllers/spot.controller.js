@@ -1,7 +1,125 @@
 const SpotReview = require("../models/SpotReview");
 const { PointsCalculator } = require("../utils/pointsCalculator"); // Prappo
 const Notification = require("../models/Notification"); // Prappo
+const SpotCheckIn = require("../models/SpotCheckIn");
+const Spot = require("../models/Spot");
+const User = require("../models/User");
+const mongoose = require("mongoose");
+const axios = require("axios");
 
+const buildAIReviewPrompt = ({ spotTitle, reviews, peakHourLabel }) => {
+  const formattedReviews = reviews
+    .map((review, index) => {
+      const ratingText = `Rating: ${review.rating}/5`;
+      const text = review.reviewText?.trim() || "No written review";
+      const amenities =
+        review.availableAmenities?.length > 0
+          ? `Amenities mentioned: ${review.availableAmenities.join(", ")}`
+          : "Amenities mentioned: None";
+
+      return `${index + 1}. ${ratingText}\nReview: ${text}\n${amenities}`;
+    })
+    .join("\n\n");
+
+  return `
+You are summarizing user reviews for a student study-spot platform called StudyDen.
+
+Spot title: ${spotTitle}
+Peak hour from real check-in analytics: ${peakHourLabel || "Not available"}
+
+Based only on the reviews below, generate a JSON object with this exact structure:
+{
+  "summary": "2-4 sentence neutral summary",
+  "pros": ["short point", "short point", "short point"],
+  "cons": ["short point", "short point", "short point"]
+}
+
+Rules:
+- Return ONLY valid JSON.
+- Do not include markdown.
+- Do not invent facts not supported by reviews.
+- Keep pros and cons concise.
+- If there is not enough information for a section, return an empty array for it.
+- Focus on study environment, comfort, noise, amenities, crowd, and usefulness.
+
+Reviews:
+${formattedReviews}
+  `.trim();
+};
+
+const parseAIJson = (text) => {
+  if (!text) {
+    return {
+      summary: "",
+      pros: [],
+      cons: [],
+    };
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        return JSON.parse(match[0]);
+      } catch (innerErr) {
+        return {
+          summary: text,
+          pros: [],
+          cons: [],
+        };
+      }
+    }
+
+    return {
+      summary: text,
+      pros: [],
+      cons: [],
+    };
+  }
+};
+const CROWD_LABELS = {
+  1: "Very Low",
+  2: "Low",
+  3: "Moderate",
+  4: "Busy",
+  5: "Packed",
+};
+
+const NOISE_LABELS = {
+  1: "Silent",
+  2: "Quiet",
+  3: "Moderate",
+  4: "Noisy",
+  5: "Very Noisy",
+};
+
+const getNearestLabel = (value, labels) => {
+  if (!value) return "N/A";
+
+  const rounded = Math.min(5, Math.max(1, Math.round(value)));
+  return labels[rounded] || "N/A";
+};
+
+const getCrowdStatusFromAverage = (value) => {
+  if (value === null || value === undefined) return "N/A";
+  if (value <= 2) return "Low";
+  if (value <= 3.5) return "Medium";
+  return "High";
+};
+
+const ALLOWED_AMENITIES = [
+  "WiFi",
+  "Charging Points",
+  "AC",
+  "Quiet Zone",
+  "Snacks",
+  "Parking",
+  "Washroom",
+  "Group Seating",
+  "Smoking Zone",
+];
 
 exports.createOrUpdateSpotReview = async (req, res, next) => {
   try {
@@ -112,44 +230,6 @@ exports.getMySpotReview = async (req, res, next) => {
   }
 };
 
-const SpotCheckIn = require("../models/SpotCheckIn");
-const CROWD_LABELS = {
-  1: "Very Low",
-  2: "Low",
-  3: "Moderate",
-  4: "Busy",
-  5: "Packed",
-};
-
-const NOISE_LABELS = {
-  1: "Silent",
-  2: "Quiet",
-  3: "Moderate",
-  4: "Noisy",
-  5: "Very Noisy",
-};
-
-const getNearestLabel = (value, labels) => {
-  if (!value) return "N/A";
-
-  const rounded = Math.min(5, Math.max(1, Math.round(value)));
-  return labels[rounded] || "N/A";
-};
-
-const Spot = require("../models/Spot");
-const User = require("../models/User");
-
-const ALLOWED_AMENITIES = [
-  "WiFi",
-  "Charging Points",
-  "AC",
-  "Quiet Zone",
-  "Snacks",
-  "Parking",
-  "Washroom",
-  "Group Seating",
-];
-
 exports.createSpot = async (req, res, next) => {
   try {
     const { title, type, description, address, amenities, lat, lng } = req.body;
@@ -209,38 +289,33 @@ exports.createSpot = async (req, res, next) => {
       },
     });
 
-  await spot.populate("postedBy", "name email points badges profilePhoto");
+    await spot.populate("postedBy", "name email points badges profilePhoto");
 
-  // Prappo: Award points for creating a spot ->
-  const user = await User.findById(req.user.id);
-  const pointsEarned = PointsCalculator.getPointsForAction('ADD_SPOT');
-  user.points += pointsEarned;
+    // Prappo: Award points for creating a spot ->
+    const user = await User.findById(req.user.id);
+    const pointsEarned = PointsCalculator.getPointsForAction("ADD_SPOT");
+    user.points += pointsEarned;
 
-  // New badge chek
-  const newBadges = PointsCalculator.checkNewBadges(user);
-  if (newBadges.length > 0) {
-    user.badges = [...(user.badges || []), ...newBadges];
-  }
-  await user.save();
+    // New badge check
+    const newBadges = PointsCalculator.checkNewBadges(user);
+    if (newBadges.length > 0) {
+      user.badges = [...(user.badges || []), ...newBadges];
+    }
+    await user.save();
 
-  // send notification
-  await Notification.create({
-    user: user._id,
-    type: "points_earned",
-    title: "Points Earned",
-    message: `You earned ${pointsEarned} points for adding a new spot!`
-  });
-
+    // send notification
+    await Notification.create({
+      user: user._id,
+      type: "points_earned",
+      title: "Points Earned",
+      message: `You earned ${pointsEarned} points for adding a new spot!`,
+    });
 
     res.status(201).json({ spot });
   } catch (err) {
     next(err);
   }
-
 };
-
-const mongoose = require("mongoose");
-const axios = require("axios");
 
 exports.getSpotDirections = async (req, res, next) => {
   try {
@@ -377,16 +452,72 @@ exports.getSpots = async (req, res, next) => {
       ])
     );
 
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+    const recentCheckIns = await SpotCheckIn.aggregate([
+      {
+        $match: {
+          spot: { $in: spotIds },
+          checkedInAt: { $gte: twoHoursAgo },
+        },
+      },
+      {
+        $sort: {
+          checkedInAt: -1,
+        },
+      },
+      {
+        $group: {
+          _id: "$spot",
+          recentCrowdLevels: { $push: "$crowdLevel" },
+        },
+      },
+      {
+        $project: {
+          recentCrowdLevels: { $slice: ["$recentCrowdLevels", 5] },
+        },
+      },
+    ]);
+
+    const crowdMap = new Map(
+      recentCheckIns.map((item) => {
+        const levels = item.recentCrowdLevels || [];
+        const averageCrowdLevel =
+          levels.length > 0
+            ? Number(
+                (
+                  levels.reduce((sum, level) => sum + level, 0) / levels.length
+                ).toFixed(1)
+              )
+            : null;
+
+        return [
+          item._id.toString(),
+          {
+            averageCrowdLevel,
+            crowdStatus: getCrowdStatusFromAverage(averageCrowdLevel),
+          },
+        ];
+      })
+    );
+
     let enrichedSpots = matchingSpots.map((spot) => {
       const ratingInfo = ratingMap.get(spot._id.toString()) || {
         averageRating: 0,
         totalReviews: 0,
       };
 
+      const crowdInfo = crowdMap.get(spot._id.toString()) || {
+        averageCrowdLevel: null,
+        crowdStatus: "N/A",
+      };
+
       return {
         ...spot,
         averageRating: ratingInfo.averageRating,
         totalReviews: ratingInfo.totalReviews,
+        averageCrowdLevel: crowdInfo.averageCrowdLevel,
+        crowdStatus: crowdInfo.crowdStatus,
       };
     });
 
@@ -461,19 +592,19 @@ exports.deleteSpot = async (req, res, next) => {
       return res.status(403).json({ message: "Forbidden" });
     }
 
-  // Prappo: Deduct points for deleting a spot ->
-  const originalPoster = await User.findById(spot.postedBy);
-  const pointsToDeduct = PointsCalculator.getPointsForAction('REMOVE_SPOT');
-  originalPoster.points = Math.max(0, originalPoster.points + pointsToDeduct);
-  await originalPoster.save();
+    // Prappo: Deduct points for deleting a spot ->
+    const originalPoster = await User.findById(spot.postedBy);
+    const pointsToDeduct = PointsCalculator.getPointsForAction("REMOVE_SPOT");
+    originalPoster.points = Math.max(0, originalPoster.points + pointsToDeduct);
+    await originalPoster.save();
 
-  // send notification to original poster
-  await Notification.create({
-    user: originalPoster._id,
-    type: "points_earned",
-    title: "Points Deducted",
-    message: `You lost ${-pointsToDeduct} points for deleting a spot.`
-  });
+    // send notification to original poster
+    await Notification.create({
+      user: originalPoster._id,
+      type: "points_earned",
+      title: "Points Deducted",
+      message: `You lost ${-pointsToDeduct} points for deleting a spot.`,
+    });
 
     await Spot.findByIdAndDelete(id);
 
@@ -481,7 +612,6 @@ exports.deleteSpot = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-
 };
 
 exports.createSpotCheckIn = async (req, res, next) => {
@@ -515,7 +645,8 @@ exports.createSpotCheckIn = async (req, res, next) => {
 
     if (recentCheckIn) {
       return res.status(429).json({
-        message: "You already checked in recently. Please wait a bit before checking in again.",
+        message:
+          "You already checked in recently. Please wait a bit before checking in again.",
       });
     }
 
@@ -687,6 +818,141 @@ exports.getSpotAnalytics = async (req, res, next) => {
       },
     });
   } catch (err) {
+    next(err);
+  }
+};
+
+exports.getSpotAISummary = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const spot = await Spot.findById(id).select("title");
+    if (!spot) {
+      return res.status(404).json({ message: "Spot not found" });
+    }
+
+    const reviews = await SpotReview.find({ spot: id })
+      .select("rating reviewText availableAmenities createdAt")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (!reviews.length) {
+      return res.json({
+        summary: "No reviews yet for this spot.",
+        pros: [],
+        cons: [],
+      });
+    }
+
+    const validTextReviews = reviews.filter(
+      (review) =>
+        review.reviewText?.trim() ||
+        (Array.isArray(review.availableAmenities) &&
+          review.availableAmenities.length > 0)
+    );
+
+    if (!validTextReviews.length) {
+      return res.json({
+        summary:
+          "There are ratings for this spot, but not enough written feedback yet for an AI summary.",
+        pros: [],
+        cons: [],
+      });
+    }
+
+    const spotObjectId = new mongoose.Types.ObjectId(id);
+
+    const peakHourResult = await SpotCheckIn.aggregate([
+      {
+        $match: {
+          spot: spotObjectId,
+        },
+      },
+      {
+        $project: {
+          hour: { $hour: "$checkedInAt" },
+        },
+      },
+      {
+        $group: {
+          _id: "$hour",
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: {
+          count: -1,
+          _id: 1,
+        },
+      },
+      {
+        $limit: 1,
+      },
+    ]);
+
+    const peakHour = peakHourResult[0] || null;
+    const peakHourLabel = peakHour
+      ? `${String(peakHour._id).padStart(2, "0")}:00 - ${String(
+          (peakHour._id + 1) % 24
+        ).padStart(2, "0")}:00`
+      : null;
+
+    if (!process.env.GROQ_API_KEY) {
+      return res.status(500).json({
+        message: "GROQ_API_KEY is not configured",
+      });
+    }
+
+    const prompt = buildAIReviewPrompt({
+      spotTitle: spot.title,
+      reviews: validTextReviews.slice(0, 20),
+      peakHourLabel,
+    });
+
+    const groqResponse = await axios.post(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        model: "openai/gpt-oss-20b",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a careful assistant that returns only valid JSON.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.3,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        },
+      }
+    );
+
+    const rawText =
+      groqResponse.data?.choices?.[0]?.message?.content?.trim() || "";
+
+    const parsed = parseAIJson(rawText);
+
+    res.json({
+      summary:
+        typeof parsed.summary === "string" && parsed.summary.trim()
+          ? parsed.summary.trim()
+          : "No AI summary available yet.",
+      pros: Array.isArray(parsed.pros)
+        ? parsed.pros.filter(Boolean).slice(0, 5)
+        : [],
+      cons: Array.isArray(parsed.cons)
+        ? parsed.cons.filter(Boolean).slice(0, 5)
+        : [],
+    });
+  } catch (err) {
+    console.error("Groq AI summary error:", err.response?.data || err.message);
     next(err);
   }
 };

@@ -310,6 +310,7 @@ exports.updateMyPreferences = async (req, res, next) => {
       "Parking",
       "Washroom",
       "Group Seating",
+      "Smoking Zone",
     ];
 
     const normalizedAmenities = Array.isArray(amenities)
