@@ -79,7 +79,7 @@ router.get('/status', requireAuth, async (req, res) => {
     res.json({ connected });
   } catch (err) {
     console.error('Status check error:', err);
-    res.status(500).json({ connected: false, error: err.message });
+    res.status(500).json({ connected: false, error: err.message }); //sdfdsf
   }
 });
 

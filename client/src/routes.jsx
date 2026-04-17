@@ -12,10 +12,12 @@ import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
 import SpotDetails from "./pages/SpotDetails";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminSpots from "./pages/AdminSpots";
+import AdminSpotsVerification from "./pages/AdminSpotsVerification"; // NEW
 
 import RequireAuth from "./components/auth/RequireAuth";
 import RequireAdmin from "./components/auth/RequireAdmin";
-import AdminSpots from "./pages/AdminSpots";
+
 const router = createBrowserRouter([
   {
     path: "/",
@@ -23,7 +25,6 @@ const router = createBrowserRouter([
     errorElement: <NotFound />,
     children: [
       { index: true, element: <Home /> },
-
       {
         path: "spots",
         element: (
@@ -88,7 +89,14 @@ const router = createBrowserRouter([
           </RequireAdmin>
         ),
       },
-
+      {
+        path: "admin/spots/verify",
+        element: (
+          <RequireAdmin>
+            <AdminSpotsVerification />
+          </RequireAdmin>
+        ),
+      },
       { path: "login", element: <Login /> },
       { path: "register", element: <Register /> },
     ],

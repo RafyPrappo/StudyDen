@@ -54,6 +54,16 @@ const spotSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    // NEW FIELDS FOR ADMIN VERIFICATION
+    verificationStatus: {
+      type: String,
+      enum: ["Verified", "Unverified", "Commercial"],
+      default: "Unverified",
+    },
+    verifiedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
   },
   { timestamps: true }
 );

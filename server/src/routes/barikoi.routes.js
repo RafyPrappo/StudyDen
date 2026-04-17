@@ -16,7 +16,7 @@ router.get('/geocode', requireAuth, async (req, res, next) => {
   try {
     const { address } = req.query;
     if (!address) {
-      return res.status(400).json({ message: 'Address parameter is required' });
+      return res.status(400).json({ message: 'Address parameter is required' }); //sdfsdf
     }
     const result = await geocodeAddress(address);
     res.json(result);

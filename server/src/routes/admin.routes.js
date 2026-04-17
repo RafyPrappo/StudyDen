@@ -2,19 +2,29 @@ const express = require("express");
 const requireAuth = require("../middleware/auth.middleware");
 const requireAdmin = require("../middleware/admin.middleware");
 const User = require("../models/User");
+const {
+  getNearbyPlaces,
+  importPlace,
+  getPendingSpots,
+  updateSpotStatus,
+} = require("../controllers/admin.controller");
 
 const router = express.Router();
-const {getNearbyPlaces, importPlace,} = require("../controllers/admin.controller");
 
 router.get("/places/nearby", requireAuth, requireAdmin, getNearbyPlaces);
 router.post("/places/import", requireAuth, requireAdmin, importPlace);
+
+
+router.get("/spots/pending", requireAuth, requireAdmin, getPendingSpots);
+router.put("/spots/:spotId/status", requireAuth, requireAdmin, updateSpotStatus);
+
 router.get("/dashboard", requireAuth, requireAdmin, (req, res) => {
-  res.json({ 
+  res.json({
     message: "Welcome to admin dashboard",
     admin: {
       name: req.userData.name,
-      email: req.userData.email
-    }
+      email: req.userData.email,
+    },
   });
 });
 

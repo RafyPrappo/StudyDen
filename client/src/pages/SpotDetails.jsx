@@ -26,6 +26,9 @@ import {
   Volume2,
   UserCheck,
   Navigation,
+  CheckCircle,
+  AlertTriangle,
+  Building2,
 } from "lucide-react";
 
 const amenityIcons = {
@@ -235,111 +238,109 @@ export default function SpotDetails() {
   };
 
   const handleDirection = async () => {
-  if (!spot?.location?.lat || !spot?.location?.lng) {
-    alert("Location coordinates are not available for this spot yet.");
-    return;
-  }
-  setGettingDirection(true);
-  setRouteError("");
+    if (!spot?.location?.lat || !spot?.location?.lng) {
+      alert("Location coordinates are not available for this spot yet.");
+      return;
+    }
+    setGettingDirection(true);
+    setRouteError("");
 
-  try {
-    let userLat;
-    let userLng;
+    try {
+      let userLat;
+      let userLng;
 
-    if (liveLocation?.lat && liveLocation?.lng) {
-      userLat = liveLocation.lat;
-      userLng = liveLocation.lng;
-    } else {
-      if (!navigator.geolocation) {
-        throw new Error("Geolocation is not supported by your browser.");
+      if (liveLocation?.lat && liveLocation?.lng) {
+        userLat = liveLocation.lat;
+        userLng = liveLocation.lng;
+      } else {
+        if (!navigator.geolocation) {
+          throw new Error("Geolocation is not supported by your browser.");
+        }
+
+        const position = await new Promise((resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(resolve, reject)
+        );
+
+        userLat = position.coords.latitude;
+        userLng = position.coords.longitude;
       }
 
-      const position = await new Promise((resolve, reject) =>
-        navigator.geolocation.getCurrentPosition(resolve, reject)
-      );
+      setRouteData(null);
 
-      userLat = position.coords.latitude;
-      userLng = position.coords.longitude;
+      const data = await spotApi.getDirections(id, {
+        startLat: userLat,
+        startLng: userLng,
+        profile: selectedProfile,
+      });
+
+      if (!data.route) {
+        setRouteError(data.message || "No route found.");
+        return;
+      }
+
+      setRouteData(data.route);
+
+      if (!isTracking) {
+        startLiveTracking();
+      }
+    } catch (err) {
+      console.error("Failed to get route:", err);
+      setRouteError(err.message || "Failed to load route.");
+    } finally {
+      setGettingDirection(false);
+    }
+  };
+
+  const updateUserMarker = (lng, lat) => {
+    if (!mapRef.current) return;
+
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setLngLat([lng, lat]);
+    } else {
+      userMarkerRef.current = new window.bkoigl.Marker()
+        .setLngLat([lng, lat])
+        .addTo(mapRef.current);
     }
 
-    // optional reset
-    setRouteData(null);
+    if (autoFollow) {
+      mapRef.current.easeTo({
+        center: [lng, lat],
+        zoom: Math.max(mapRef.current.getZoom(), 15),
+        duration: 800,
+      });
+    }
+  };
 
-    const data = await spotApi.getDirections(id, {
-      startLat: userLat,
-      startLng: userLng,
-      profile: selectedProfile,
-    });
-
-    if (!data.route) {
-      setRouteError(data.message || "No route found.");
+  const startLiveTracking = () => {
+    if (!navigator.geolocation) {
+      setRouteError("Geolocation is not supported by your browser.");
       return;
     }
 
-    setRouteData(data.route);
+    if (watchIdRef.current !== null) return;
 
-    if (!isTracking) {
-      startLiveTracking();
-    }
+    setIsTracking(true);
 
-  } catch (err) {
-    console.error("Failed to get route:", err);
-    setRouteError(err.message || "Failed to load route.");
-  } finally {
-    setGettingDirection(false);
-  }
-};
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
 
-  const updateUserMarker = (lng, lat) => {
-  if (!mapRef.current) return;
-
-  if (userMarkerRef.current) {
-    userMarkerRef.current.setLngLat([lng, lat]);
-  } else {
-    userMarkerRef.current = new window.bkoigl.Marker()
-      .setLngLat([lng, lat])
-      .addTo(mapRef.current);
-  }
-
-  if (autoFollow) {
-    mapRef.current.easeTo({
-      center: [lng, lat],
-      zoom: Math.max(mapRef.current.getZoom(), 15),
-      duration: 800,
-    });
-  }
-};
-
-  const startLiveTracking = () => {
-  if (!navigator.geolocation) {
-    setRouteError("Geolocation is not supported by your browser.");
-    return;
-  }
-
-  if (watchIdRef.current !== null) return;
-
-  setIsTracking(true);
-
-  watchIdRef.current = navigator.geolocation.watchPosition(
-    (position) => {
-      const lat = position.coords.latitude;
-      const lng = position.coords.longitude;
-
-      setLiveLocation({ lat, lng });
-      updateUserMarker(lng, lat);
-    },
-    (err) => {
-      console.error("Live location error:", err);
-      setRouteError("Unable to track your live location.");
-      setIsTracking(false);
-    },
-    {
-      enableHighAccuracy: true,
-      maximumAge: 3000,
-      timeout: 10000,
-    }
-  );
-};
+        setLiveLocation({ lat, lng });
+        updateUserMarker(lng, lat);
+      },
+      (err) => {
+        console.error("Live location error:", err);
+        setRouteError("Unable to track your live location.");
+        setIsTracking(false);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 3000,
+        timeout: 10000,
+      }
+    );
+  };
 
   const stopLiveTracking = () => {
     if (watchIdRef.current !== null) {
@@ -438,13 +439,32 @@ export default function SpotDetails() {
             <Card className="p-6 sm:p-8">
               <div className="flex items-start justify-between gap-4 mb-5">
                 <div>
-                  <span
-                    className={`inline-flex px-3 py-1 rounded-full text-xs font-medium border mb-4 ${
-                      typeStyles[spot.type] || typeStyles.Public
-                    }`}
-                  >
-                    {spot.type}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2 mb-4">
+                    <span
+                      className={`inline-flex px-3 py-1 rounded-full text-xs font-medium border ${
+                        typeStyles[spot.type] || typeStyles.Public
+                      }`}
+                    >
+                      {spot.type}
+                    </span>
+
+                    {/* Verification Badges */}
+                    {spot.verificationStatus === "Verified" && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border bg-green-100 text-green-700 border-green-200">
+                        <CheckCircle size={12} /> Verified
+                      </span>
+                    )}
+                    {spot.verificationStatus === "Unverified" && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border bg-yellow-100 text-yellow-700 border-yellow-200">
+                        <AlertTriangle size={12} /> Unverified
+                      </span>
+                    )}
+                    {spot.verificationStatus === "Commercial" && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border bg-purple-100 text-purple-700 border-purple-200">
+                        <Building2 size={12} /> Commercial
+                      </span>
+                    )}
+                  </div>
 
                   <h1 className="text-3xl font-bold text-gray-900 mb-3">
                     {spot.title}

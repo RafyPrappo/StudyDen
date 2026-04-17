@@ -8,7 +8,7 @@ import CreateEventModal from "../components/events/CreateEventModal";
 import { eventApi } from "../services/event";
 import { Search, Loader2, Plus } from "lucide-react";
 
-const TOPICS = ["All", "Design", "Development", "Academic", "Nature", "Other", "Joined Events"];
+const TOPICS = ["All", "Design", "Development", "Academic", "Nature", "Other", "My Events"];
 
 export default function EventsPage() {
   const { user } = useAuth();
@@ -39,17 +39,24 @@ export default function EventsPage() {
     try {
       setLoading(true);
       setError("");
+      
+      // Build params: always include upcoming and ongoing
       const params = {
-        topic: selectedTopic,
+        topic: selectedTopic !== "My Events" ? selectedTopic : undefined,
+        status: "upcoming,ongoing",
         page,
         limit: 9
       };
       if (searchQuery) params.search = searchQuery;
+
       const data = await eventApi.getEvents(params);
       let filteredEvents = data.events || [];
-      if (selectedTopic === "Joined Events" && user) {
+
+      // If "My Events" is selected, keep only events the user is attending
+      if (selectedTopic === "My Events" && user) {
         filteredEvents = filteredEvents.filter(e => e.isAttending);
       }
+
       setEvents(filteredEvents);
       setTotalPages(data.pagination?.pages || 1);
     } catch (err) {
@@ -84,7 +91,7 @@ export default function EventsPage() {
     <Container>
       <div className="mb-12">
         <div className="text-center max-w-2xl mx-auto">
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">Upcoming events</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">Upcoming & Ongoing Events</h1>
           <p className="text-gray-600 mb-8">
             Join workshops, networking sessions and community meetups
           </p>
@@ -185,7 +192,6 @@ export default function EventsPage() {
         </>
       )}
 
-      {/* Floating Action Button (FAB) for creating events – only visible when logged in and on events page */}
       {user && (
         <button
           onClick={() => setShowCreateModal(true)}
