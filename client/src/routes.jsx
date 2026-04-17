@@ -13,7 +13,8 @@ import NotFound from "./pages/NotFound";
 import SpotDetails from "./pages/SpotDetails";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminSpots from "./pages/AdminSpots";
-import AdminSpotsVerification from "./pages/AdminSpotsVerification"; // NEW
+import AdminSpotsVerification from "./pages/AdminSpotsVerification"; // Arrafy's addition
+import AdminReports from "./pages/AdminReports"; // Friend's addition
 
 import RequireAuth from "./components/auth/RequireAuth";
 import RequireAdmin from "./components/auth/RequireAdmin";
@@ -94,6 +95,14 @@ const router = createBrowserRouter([
         element: (
           <RequireAdmin>
             <AdminSpotsVerification />
+          </RequireAdmin>
+        ),
+      },
+      {
+        path: "admin/reports",
+        element: (
+          <RequireAdmin>
+            <AdminReports />
           </RequireAdmin>
         ),
       },

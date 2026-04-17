@@ -6,6 +6,7 @@ import Container from "../components/ui/Container";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import { userApi } from "../services/user";
+import { spotApi } from "../services/spot";
 import { 
   User, 
   Calendar, 
@@ -39,6 +40,7 @@ const BADGE_COLORS = {
   "Perfect Host": "bg-yellow-50 text-yellow-700 border-yellow-200",
   Dedicated: "bg-red-50 text-red-700 border-red-200"
 };
+
 const AMENITY_OPTIONS = [
   "WiFi",
   "Charging Points",
@@ -48,10 +50,10 @@ const AMENITY_OPTIONS = [
   "Parking",
   "Washroom",
   "Group Seating",
+  "Smoking Zone"
 ];
 
 const LEVEL_OPTIONS = [1, 2, 3, 4, 5];
-
 
 export default function ProfilePage() {
   const { userId } = useParams();
@@ -69,12 +71,15 @@ export default function ProfilePage() {
   const [notificationsTotal, setNotificationsTotal] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
   const [completedEvents, setCompletedEvents] = useState([]);
+  const [favouriteSpots, setFavouriteSpots] = useState([]);
+  const [visitedSpots, setVisitedSpots] = useState([]);
+  const [frequentSpots, setFrequentSpots] = useState([]);
   const [eventsPage, setEventsPage] = useState(1);
   const [eventsTotal, setEventsTotal] = useState(0);
   const [ditchStreak, setDitchStreak] = useState({ currentStreak: 0, totalDitched: 0 });
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
-    const [showPreferencesBox, setShowPreferencesBox] = useState(false);
+  const [showPreferencesBox, setShowPreferencesBox] = useState(false);
   const [savingPreferences, setSavingPreferences] = useState(false);
   const [preferencesError, setPreferencesError] = useState("");
   const [preferencesForm, setPreferencesForm] = useState({
@@ -101,6 +106,9 @@ export default function ProfilePage() {
         fetchNotifications();
         fetchCompletedEvents();
         fetchDitchStreak();
+        fetchFavouriteSpots();
+        fetchVisitedSpots();
+        fetchFrequentSpots();
       }
     } catch (err) {
       setError("Failed to load profile");
@@ -131,6 +139,33 @@ export default function ProfilePage() {
     }
   };
 
+  const fetchFavouriteSpots = async () => {
+    try {
+      const data = await spotApi.getFavouriteSpots();
+      setFavouriteSpots(data.spots || []);
+    } catch (err) {
+      console.error("Failed to load favourites:", err);
+    }
+  };
+
+  const fetchVisitedSpots = async () => {
+    try {
+      const data = await spotApi.getVisitedSpots();
+      setVisitedSpots(data.spots || []);
+    } catch (err) {
+      console.error("Failed to load visited spots:", err);
+    }
+  };
+
+  const fetchFrequentSpots = async () => {
+    try {
+      const data = await spotApi.getFrequentSpots();
+      setFrequentSpots(data.spots || []);
+    } catch (err) {
+      console.error("Failed to load frequent spots:", err);
+    }
+  };
+
   const fetchDitchStreak = async () => {
     try {
       const data = await userApi.getDitchStreak();
@@ -139,7 +174,8 @@ export default function ProfilePage() {
       console.error("Failed to load ditch streak:", err);
     }
   };
-    const loadPreferences = async () => {
+
+  const loadPreferences = async () => {
     try {
       setPreferencesError("");
       const data = await userApi.getPreferences();
@@ -312,6 +348,91 @@ export default function ProfilePage() {
     }
   };
 
+  const renderCompactSpotList = (
+    spots,
+    emptyText,
+    showVisitCount = false,
+    allowRemoveFavourite = false
+  ) => {
+    if (!spots || spots.length === 0) {
+      return (
+        <p className="text-gray-500 col-span-2 text-center py-4">
+          {emptyText}
+        </p>
+      );
+    }
+
+    return spots.map((spot) => (
+      <Link to={`/spots/${spot._id}`} key={spot._id}>
+        <div className="border rounded-lg p-4 hover:bg-gray-50 hover:border-blue-200 transition cursor-pointer">
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <h4 className="font-semibold text-gray-900 line-clamp-1">
+              {spot.title}
+            </h4>
+
+            <div className="flex items-center gap-2">
+              {allowRemoveFavourite && (
+                <button
+                  type="button"
+                  onClick={(e) => handleRemoveFavourite(e, spot._id)}
+                  className="text-xs px-2.5 py-1 rounded-md border border-red-200 text-red-600 hover:bg-red-50"
+                >
+                  Remove
+                </button>
+              )}
+
+              <span
+                className={`text-xs px-2.5 py-1 rounded-full border whitespace-nowrap ${
+                  spot.type === "Private"
+                    ? "bg-purple-100 text-purple-700 border-purple-200"
+                    : "bg-green-100 text-green-700 border-green-200"
+                }`}
+              >
+                {spot.type || "Public"}
+              </span>
+            </div>
+          </div>
+
+          <p className="text-sm text-gray-600 line-clamp-1 mb-2">
+            {spot.address || "No address available"}
+          </p>
+
+          <div className="flex flex-wrap gap-2 text-xs">
+            {typeof spot.averageRating === "number" && (
+              <span className="px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">
+                Rating: {spot.averageRating.toFixed(1)}
+              </span>
+            )}
+
+            {spot.crowdStatus && spot.crowdStatus !== "N/A" && (
+              <span className="px-2 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                Crowd: {spot.crowdStatus}
+              </span>
+            )}
+
+            {showVisitCount && typeof spot.visitCount === "number" && (
+              <span className="px-2 py-1 rounded-full bg-pink-50 text-pink-700 border border-pink-100">
+                Visits: {spot.visitCount}
+              </span>
+            )}
+          </div>
+        </div>
+      </Link>
+    ));
+  };
+
+  const handleRemoveFavourite = async (e, spotId) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    try {
+      await spotApi.toggleFavourite(spotId);
+      fetchFavouriteSpots();
+    } catch (err) {
+      console.error("Failed to remove favourite:", err);
+    }
+  };
+  
   if (loading) {
     return (
       <Container>
@@ -339,10 +460,8 @@ export default function ProfilePage() {
   return (
     <Container>
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Sidebar - Left Column */}
         <div className="lg:col-span-1 -mt-12">
           <Card className="p-6 sticky top-24">
-            {/* Profile Photo - Using same logic as EventCard */}
             <div className="text-center mb-6">
               <div className="relative inline-block">
                 <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 mx-auto overflow-hidden">
@@ -399,7 +518,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Profile Info */}
             <div className="text-center mb-6">
               {isEditing ? (
                 <div className="space-y-3">
@@ -434,7 +552,6 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* Stats */}
             <div className="border-t pt-4 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Points</span>
@@ -465,7 +582,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Tabs */}
             {isOwnProfile && (
               <div className="border-t pt-4 mt-4">
                 <button
@@ -505,7 +621,6 @@ export default function ProfilePage() {
           </Card>
         </div>
 
-        {/* Main Content - Right Column */}
         <div className="lg:col-span-3">
           {activeTab === "profile" && (
             <Card className="p-6">
@@ -557,7 +672,32 @@ export default function ProfilePage() {
                   <p className="text-gray-500 text-center py-8">No joined events yet.</p>
                 )}
               </div>
-                            {isOwnProfile && (
+
+              {isOwnProfile && (
+                <>
+                  <h3 className="text-lg font-semibold mt-8 mb-4">Favourite Spots</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {renderCompactSpotList(
+                      favouriteSpots,
+                      "No favourite spots yet.",
+                      false,
+                      true
+                    )}
+                  </div>
+
+                  <h3 className="text-lg font-semibold mt-8 mb-4">Visited Spots</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {renderCompactSpotList(visitedSpots, "No visited spots yet.")}
+                  </div>
+
+                  <h3 className="text-lg font-semibold mt-8 mb-4">Frequently Visited Spots</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {renderCompactSpotList(frequentSpots, "No frequent spots yet.", true)}
+                  </div>
+                </>
+              )}
+
+              {isOwnProfile && (
                 <div className="mt-8 border-t pt-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold">Study Spot Preferences</h3>

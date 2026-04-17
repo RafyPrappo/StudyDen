@@ -19,7 +19,7 @@ const userSchema = new mongoose.Schema(
     dedicatedCount: { type: Number, default: 0 },
     joinedEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: "Event" }],
     completedEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: "Event" }],
-
+    favouriteSpots: [{ type: mongoose.Schema.Types.ObjectId, ref: "Spot" }],
     preferences: {
       amenities: [{ type: String }],
       crowdLevel: { type: Number, min: 1, max: 5, default: null },

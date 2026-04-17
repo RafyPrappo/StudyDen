@@ -17,7 +17,13 @@ export const adminApi = {
 
   importPlace: (data) => api.post("/api/admin/places/import", data, { credentials: "include" }),
 
+  // Arrafy's additions - Spot verification
   getPendingSpots: () => api.get("/api/admin/spots/pending", { credentials: "include" }),
   updateSpotStatus: (spotId, status) =>
     api.put(`/api/admin/spots/${spotId}/status`, { status }, { credentials: "include" }),
+
+  // Friend's additions - Report management
+  getSpotReports: () => api.get("/api/admin/reports", { credentials: "include" }),
+  resolveSpotReport: (reportId, data) =>
+    api.post(`/api/admin/reports/${reportId}`, data, { credentials: "include" }),
 };

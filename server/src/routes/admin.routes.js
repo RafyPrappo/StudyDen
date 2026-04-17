@@ -11,6 +11,11 @@ const {
 
 const router = express.Router();
 
+const {getSpotReports,resolveReport,} = require("../controllers/admin.controller");
+
+router.get("/reports", requireAuth, requireAdmin, getSpotReports);
+router.post("/reports/:id", requireAuth, requireAdmin, resolveReport);
+
 router.get("/places/nearby", requireAuth, requireAdmin, getNearbyPlaces);
 router.post("/places/import", requireAuth, requireAdmin, importPlace);
 

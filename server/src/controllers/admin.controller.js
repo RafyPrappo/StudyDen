@@ -164,3 +164,33 @@ exports.updateSpotStatus = async (req, res, next) => {
     next(err);
   }
 };
+const SpotReport = require("../models/SpotReport");
+
+exports.getSpotReports = async (req, res) => {
+  const reports = await SpotReport.find({ status: "pending" })
+    .populate("spot")
+    .populate("reportedBy", "name email")
+    .sort({ createdAt: -1 });
+
+  res.json({ reports });
+}; 
+
+exports.resolveReport = async (req, res) => {
+  const { id } = req.params;
+  const { action } = req.body; // "keep" or "remove"
+
+  const report = await SpotReport.findById(id).populate("spot");
+
+  if (!report) {
+    return res.status(404).json({ message: "Report not found" });
+  }
+
+  if (action === "remove") {
+    await Spot.findByIdAndDelete(report.spot._id);
+  }
+
+  report.status = "resolved";
+  await report.save();
+
+  res.json({ message: "Report handled successfully" });
+};
