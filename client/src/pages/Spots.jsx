@@ -45,6 +45,7 @@ export default function Spots() {
   const [totalPages, setTotalPages] = useState(1);
   const [error, setError] = useState("");
   const [isPreferenceMode, setIsPreferenceMode] = useState(false);
+  const [favouriteIds, setFavouriteIds] = useState([]);
 
   useEffect(() => {
     const event = new CustomEvent("navbar-events-page", {
@@ -97,12 +98,24 @@ export default function Spots() {
     }
   };
 
+  const fetchFavouriteIds = async () => {
+    try {
+      const data = await spotApi.getFavouriteSpots();
+      const ids = (data.spots || []).map((spot) => spot._id);
+      setFavouriteIds(ids);
+    } catch (err) {
+      console.error("Failed to load favourites:", err);
+    }
+  };
+
   useEffect(() => {
     if (isPreferenceMode) {
       fetchPreferredSpots();
     } else {
       fetchSpots();
     }
+
+    fetchFavouriteIds();
   }, [selectedType, selectedAmenity, selectedRating, page, isPreferenceMode]);
 
   const handleSearch = async (e) => {
@@ -276,7 +289,19 @@ export default function Spots() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {spots.map((spot) => (
-              <SpotCard key={spot._id} spot={spot} onUpdate={isPreferenceMode ? fetchPreferredSpots : fetchSpots} />
+              <SpotCard
+                key={spot._id}
+                spot={spot}
+                onUpdate={() => {
+                  if (isPreferenceMode) {
+                    fetchPreferredSpots();
+                  } else {
+                    fetchSpots();
+                  }
+                  fetchFavouriteIds();
+                }}
+                favouriteIds={favouriteIds}
+              />
             ))}
           </div>
 

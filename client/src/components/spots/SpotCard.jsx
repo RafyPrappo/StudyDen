@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
@@ -19,6 +19,7 @@ import {
   Trash2,
   Loader2,
   Star,
+  Heart,
 } from "lucide-react";
 import { spotApi } from "../../services/spot";
 
@@ -38,13 +39,22 @@ const typeStyles = {
   Private: "bg-purple-100 text-purple-700 border-purple-200",
 };
 
-export default function SpotCard({ spot, onUpdate }) {
+export default function SpotCard({ spot, onUpdate, favouriteIds = [] }) {
   const { user } = useAuth();
   const [deleting, setDeleting] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [isFavourite, setIsFavourite] = useState(false);
+  const [favouriteLoading, setFavouriteLoading] = useState(false);
 
-  const isOwner =
-    (user?.id || user?._id) === (spot.postedBy?._id || spot.postedBy);
+  const userId = String(user?._id || user?.id || "");
+  const ownerId = String(spot.postedBy?._id || spot.postedBy || "");
+  const isOwner = userId === ownerId;
+
+  useEffect(() => {
+    const spotId = String(spot?._id || "");
+    const exists = favouriteIds.some((id) => String(id) === spotId);
+    setIsFavourite(exists);
+  }, [favouriteIds, spot?._id]);
 
   const handleDelete = async () => {
     if (!window.confirm("Are you sure you want to delete this study spot?")) {
@@ -63,6 +73,20 @@ export default function SpotCard({ spot, onUpdate }) {
     }
   };
 
+  const handleToggleFavourite = async () => {
+    try {
+      setFavouriteLoading(true);
+      const data = await spotApi.toggleFavourite(spot._id);
+      setIsFavourite(data.isFavourite);
+      if (onUpdate) onUpdate();
+    } catch (err) {
+      console.error("Failed to update favourite:", err);
+      alert(err.message || "Failed to update favourite");
+    } finally {
+      setFavouriteLoading(false);
+    }
+  };
+
   return (
     <>
       <Card className="p-5 hover:shadow-lg transition-all duration-200 border border-gray-100 hover:border-blue-200 min-h-[420px] flex flex-col">
@@ -76,6 +100,23 @@ export default function SpotCard({ spot, onUpdate }) {
           </span>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              onClick={handleToggleFavourite}
+              disabled={favouriteLoading}
+              className={`px-3 py-2 border ${
+                isFavourite
+                  ? "border-pink-300 text-pink-600"
+                  : "border-gray-200 hover:border-pink-300 hover:text-pink-600"
+              }`}
+            >
+              {favouriteLoading ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Heart size={16} fill={isFavourite ? "currentColor" : "none"} />
+              )}
+            </Button>
+
             {!isOwner && (
               <Button
                 variant="ghost"

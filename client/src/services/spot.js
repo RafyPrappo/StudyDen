@@ -69,5 +69,17 @@ export const spotApi = {
     api.post(`/api/spots/${id}/reviews`, data, { credentials: "include" }),
   
   reportSpot: (id, data) =>
-  api.post(`/api/spots/${id}/report`, data, { credentials: "include" }),
+    api.post(`/api/spots/${id}/report`, data, { credentials: "include" }),
+
+  toggleFavourite: (spotId) =>
+    api.post(`/api/users/favourites/${spotId}`, {}, { credentials: "include" }),
+
+  getFavouriteSpots: () =>
+    api.get("/api/users/favourites", { credentials: "include" }),
+
+  getVisitedSpots: () =>
+    api.get("/api/users/visited-spots", { credentials: "include" }),
+
+  getFrequentSpots: () =>
+    api.get("/api/users/frequent-spots", { credentials: "include" }),
 };
