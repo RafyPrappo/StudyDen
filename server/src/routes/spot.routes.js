@@ -15,6 +15,7 @@ const {
   getSpotDirections,
   getSpotAnalytics,
   getSpotAISummary,
+  reportSpot,
 } = require("../controllers/spot.controller");
 
 const router = express.Router();
@@ -37,5 +38,7 @@ router.post("/:id/reviews", requireAuth, createOrUpdateSpotReview);
 router.get("/:id", getSpot);
 router.post("/", requireAuth, createSpot);
 router.delete("/:id", requireAuth, deleteSpot);
+
+router.post("/:id/report", requireAuth, reportSpot);
 
 module.exports = router;
