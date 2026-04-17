@@ -14,6 +14,7 @@ export const spotApi = {
     const queryString = queryParams.toString();
     return api.get(`/api/spots${queryString ? `?${queryString}` : ""}`);
   },
+
   getMyPreferredSpots: (params = {}) => {
     const queryParams = new URLSearchParams();
 
@@ -41,10 +42,11 @@ export const spotApi = {
     );
   },
 
-
   getSpot: (id) => api.get(`/api/spots/${id}`),
 
   getSpotAnalytics: (id) => api.get(`/api/spots/${id}/analytics`),
+
+  getAISummary: (id) => api.get(`/api/spots/${id}/ai-summary`),
 
   createSpot: (data) => api.post("/api/spots", data, { credentials: "include" }),
 
@@ -57,7 +59,6 @@ export const spotApi = {
 
   getCheckInStatus: (id) =>
     api.get(`/api/spots/${id}/check-in-status`, { credentials: "include" }),
-
 
   getReviews: (id) => api.get(`/api/spots/${id}/reviews`),
 

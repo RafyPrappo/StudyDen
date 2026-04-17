@@ -41,7 +41,8 @@ export default function SpotCard({ spot, onUpdate }) {
   const { user } = useAuth();
   const [deleting, setDeleting] = useState(false);
 
-  const isOwner = (user?.id || user?._id) === (spot.postedBy?._id || spot.postedBy);
+  const isOwner =
+    (user?.id || user?._id) === (spot.postedBy?._id || spot.postedBy);
 
   const handleDelete = async () => {
     if (!window.confirm("Are you sure you want to delete this study spot?")) {
@@ -114,6 +115,15 @@ export default function SpotCard({ spot, onUpdate }) {
         <span className="text-gray-500 text-xs">
           ({spot.totalReviews || 0} review{spot.totalReviews === 1 ? "" : "s"})
         </span>
+      </div>
+
+      <div className="mb-4 flex items-center gap-2 text-sm">
+        <div className="inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-700 px-3 py-1.5 border border-blue-100">
+          <Users size={14} />
+          <span className="font-medium">
+            Crowd Status: {spot.crowdStatus || "N/A"}
+          </span>
+        </div>
       </div>
 
       <p className="text-sm text-gray-600 line-clamp-4 min-h-[6rem]">

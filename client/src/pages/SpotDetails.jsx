@@ -939,11 +939,12 @@ export default function SpotDetails() {
           </div>
 
           <div className="lg:col-span-1 self-start">
-            <SpotReviewsCard
-              spotId={spot._id}
-              canReview={canReview}
-              amenities={spot.amenities || []}
-            />
+          <SpotReviewsCard
+            spotId={spot._id}
+            canReview={canReview}
+            amenities={spot.amenities || []}
+            analytics={analytics}
+          />
           </div>
         </div>
       </div>
