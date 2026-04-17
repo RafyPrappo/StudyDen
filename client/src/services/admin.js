@@ -27,4 +27,12 @@ export const adminApi = {
     api.post("/api/admin/places/import", data, {
       credentials: "include",
     }),
+
+  getSpotReports: () =>
+    api.get("/api/admin/reports", { credentials: "include" }),
+
+  resolveSpotReport: (reportId, data) =>
+    api.post(`/api/admin/reports/${reportId}`, data, {
+      credentials: "include",
+    }),
 };

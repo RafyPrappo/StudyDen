@@ -1111,3 +1111,45 @@ exports.getSpotsByMyPreferences = async (req, res, next) => {
     next(err);
   }
 };
+
+const SpotReport = require("../models/SpotReport");
+
+exports.reportSpot = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (!reason) {
+      return res.status(400).json({ message: "Reason is required" });
+    }
+
+    const spot = await Spot.findById(id);
+    if (!spot) {
+      return res.status(404).json({ message: "Spot not found" });
+    }
+
+    const existing = await SpotReport.findOne({
+      spot: id,
+      reportedBy: req.user.id,
+    });
+
+    if (existing) {
+      return res.status(400).json({
+        message: "You have already reported this spot",
+      });
+    }
+
+    const report = await SpotReport.create({
+      spot: id,
+      reportedBy: req.user.id,
+      reason,
+    });
+
+    res.status(201).json({
+      message: "Report submitted successfully",
+      report,
+    });
+  } catch (err) {
+    next(err);
+  }
+};

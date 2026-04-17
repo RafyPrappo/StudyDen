@@ -67,4 +67,7 @@ export const spotApi = {
 
   saveReview: (id, data) =>
     api.post(`/api/spots/${id}/reviews`, data, { credentials: "include" }),
+  
+  reportSpot: (id, data) =>
+  api.post(`/api/spots/${id}/report`, data, { credentials: "include" }),
 };

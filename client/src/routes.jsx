@@ -16,6 +16,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import RequireAuth from "./components/auth/RequireAuth";
 import RequireAdmin from "./components/auth/RequireAdmin";
 import AdminSpots from "./pages/AdminSpots";
+import AdminReports from "./pages/AdminReports";
 const router = createBrowserRouter([
   {
     path: "/",
@@ -85,6 +86,14 @@ const router = createBrowserRouter([
         element: (
           <RequireAdmin>
             <AdminSpots />
+          </RequireAdmin>
+        ),
+      },
+      {
+        path: "admin/reports",
+        element: (
+          <RequireAdmin>
+            <AdminReports />
           </RequireAdmin>
         ),
       },

@@ -39,6 +39,15 @@ const adminSections = [
     actionLabel: "Open Spots",
     enabled: true,
   },
+  {
+    key: "reports",
+    title: "Reported Spots",
+    description:
+      "Review spot listings reported by users and decide whether to keep or remove them.",
+    icon: Shield,
+    actionLabel: "Review Reports",
+    enabled: true,
+  },
 ];
 
 export default function AdminDashboard() {
@@ -79,6 +88,10 @@ export default function AdminDashboard() {
 
     if (sectionKey === "spots") {
       navigate("/admin/spots");
+      return;
+    }
+    if (sectionKey === "reports") {
+      navigate("/admin/reports");
       return;
     }
   };
