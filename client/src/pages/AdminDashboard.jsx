@@ -4,7 +4,7 @@ import Container from "../components/ui/Container";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import { adminApi } from "../services/admin";
-import { Shield, Users, CheckCircle2, MapPin, Loader2, ArrowRight } from "lucide-react";
+import { Shield, Users, CheckCircle2, MapPin, Flag, Loader2, ArrowRight } from "lucide-react";
 
 const adminSections = [
   {
@@ -21,24 +21,23 @@ const adminSections = [
     description: "Review admin-side approvals and moderation-related actions.",
     icon: CheckCircle2,
     actionLabel: "Open Approvals",
-    enabled: false,
+    enabled: true,
   },
   {
     key: "spots",
     title: "Spots",
-    description: "Search nearby places and import selected places as study spots. Verify existing spots.",
+    description: "Search nearby places and import selected places as study spots.",
     icon: MapPin,
-    actionLabel: "Verify Spots",
-    enabled: true,
+    actionLabel: "Import Spots",
+    enabled: true, //Barikoi import
   },
   {
     key: "reports",
     title: "Reported Spots",
-    description:
-      "Review spot listings reported by users and decide whether to keep or remove them.",
-    icon: Shield,
-    actionLabel: "Review Reports",
-    enabled: true,
+    description: "Review and resolve user-reported study spots.",
+    icon: Flag,
+    actionLabel: "View Reports",
+    enabled: true, //AdminReports
   },
 ];
 
@@ -66,14 +65,20 @@ export default function AdminDashboard() {
   }, []);
 
   const handleSectionClick = (sectionKey) => {
-    if (sectionKey === "members" || sectionKey === "approvals") {
+    if (sectionKey === "members") {
+      // Future implementation
+      return;
+    }
+    if (sectionKey === "approvals") {
+      navigate("/admin/spots/verify");
       return;
     }
     if (sectionKey === "spots") {
-      navigate("/admin/spots/verify");
+      navigate("/admin/spots"); //Barikoi import
+      return;
     }
     if (sectionKey === "reports") {
-      navigate("/admin/reports");
+      navigate("/admin/reports"); //Reported spots
       return;
     }
   };
@@ -100,7 +105,7 @@ export default function AdminDashboard() {
 
   return (
     <Container>
-      <div className="max-w-6xl mx-auto py-8">
+      <div className="max-w-7xl mx-auto py-8">
         <div className="mb-8">
           <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 text-blue-700 border border-blue-200 px-4 py-2 text-sm font-medium mb-4">
             <Shield size={16} />
