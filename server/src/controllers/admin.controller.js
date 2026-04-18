@@ -125,7 +125,6 @@ exports.importPlace = async (req, res) => {
   }
 };
 
-// ----- NEW: Admin Spot Verification -----
 exports.getPendingSpots = async (req, res, next) => {
   try {
     const spots = await Spot.find({ isApproved: true, verificationStatus: "Unverified" })
@@ -177,7 +176,7 @@ exports.getSpotReports = async (req, res) => {
 
 exports.resolveReport = async (req, res) => {
   const { id } = req.params;
-  const { action } = req.body; // "keep" or "remove"
+  const { action } = req.body; 
 
   const report = await SpotReport.findById(id).populate("spot");
 

@@ -54,7 +54,7 @@ const spotSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    // NEW FIELDS FOR ADMIN VERIFICATION
+    // Prappo
     verificationStatus: {
       type: String,
       enum: ["Verified", "Unverified", "Commercial"],
