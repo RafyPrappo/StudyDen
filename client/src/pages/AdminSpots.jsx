@@ -79,11 +79,7 @@ export default function AdminSpots() {
       <div className="max-w-6xl mx-auto py-8">
         <h1 className="text-2xl font-bold mb-6">Nearby Places (Admin Import)</h1>
 
-<<<<<<< HEAD
-        <div className="mb-4 flex gap-3 flex-wrap">
-=======
         <div className="mb-4 flex gap-3 flex-wrap justify-center sm:justify-start">
->>>>>>> main
           {[1, 3, 5, 10].map((r) => (
             <Button
               key={r}

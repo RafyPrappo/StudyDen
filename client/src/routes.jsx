@@ -12,12 +12,6 @@ import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
 import SpotDetails from "./pages/SpotDetails";
 import AdminDashboard from "./pages/AdminDashboard";
-<<<<<<< HEAD
-
-import RequireAuth from "./components/auth/RequireAuth";
-import RequireAdmin from "./components/auth/RequireAdmin";
-import AdminSpots from "./pages/AdminSpots";
-=======
 import AdminSpots from "./pages/AdminSpots";
 import AdminSpotsVerification from "./pages/AdminSpotsVerification"; // Arrafy's addition
 import AdminReports from "./pages/AdminReports"; // Friend's addition
@@ -25,7 +19,6 @@ import AdminReports from "./pages/AdminReports"; // Friend's addition
 import RequireAuth from "./components/auth/RequireAuth";
 import RequireAdmin from "./components/auth/RequireAdmin";
 
->>>>>>> main
 const router = createBrowserRouter([
   {
     path: "/",
@@ -33,10 +26,6 @@ const router = createBrowserRouter([
     errorElement: <NotFound />,
     children: [
       { index: true, element: <Home /> },
-<<<<<<< HEAD
-
-=======
->>>>>>> main
       {
         path: "spots",
         element: (
@@ -101,9 +90,6 @@ const router = createBrowserRouter([
           </RequireAdmin>
         ),
       },
-<<<<<<< HEAD
-
-=======
       {
         path: "admin/spots/verify",
         element: (
@@ -120,7 +106,6 @@ const router = createBrowserRouter([
           </RequireAdmin>
         ),
       },
->>>>>>> main
       { path: "login", element: <Login /> },
       { path: "register", element: <Register /> },
     ],

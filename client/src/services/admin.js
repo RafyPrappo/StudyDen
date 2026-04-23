@@ -1,43 +1,16 @@
 import { api } from "./apiClient";
 
 export const adminApi = {
-<<<<<<< HEAD
-  getDashboard: () =>
-    api.get("/api/admin/dashboard", { credentials: "include" }),
-
-  getUsers: () =>
-    api.get("/api/admin/users", { credentials: "include" }),
-
-  getNearbyPlaces: ({ lat, lng, radius, category = "all" }) => {
-    const queryParams = new URLSearchParams();
-
-=======
   getDashboard: () => api.get("/api/admin/dashboard", { credentials: "include" }),
 
   getUsers: () => api.get("/api/admin/users", { credentials: "include" }),
 
   getNearbyPlaces: ({ lat, lng, radius, category = "all" }) => {
     const queryParams = new URLSearchParams();
->>>>>>> main
     if (lat !== undefined && lat !== null) queryParams.append("lat", lat);
     if (lng !== undefined && lng !== null) queryParams.append("lng", lng);
     if (radius) queryParams.append("radius", radius);
     if (category) queryParams.append("category", category);
-<<<<<<< HEAD
-
-    const queryString = queryParams.toString();
-
-    return api.get(
-      `/api/admin/places/nearby${queryString ? `?${queryString}` : ""}`,
-      { credentials: "include" }
-    );
-  },
-
-  importPlace: (data) =>
-    api.post("/api/admin/places/import", data, {
-      credentials: "include",
-    }),
-=======
     const queryString = queryParams.toString();
     return api.get(`/api/admin/places/nearby${queryString ? `?${queryString}` : ""}`, { credentials: "include" });
   },
@@ -53,5 +26,4 @@ export const adminApi = {
   getSpotReports: () => api.get("/api/admin/reports", { credentials: "include" }),
   resolveSpotReport: (reportId, data) =>
     api.post(`/api/admin/reports/${reportId}`, data, { credentials: "include" }),
->>>>>>> main
 };

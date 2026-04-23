@@ -4,16 +4,8 @@ import { useAuth } from "../../context/AuthContext";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import { eventApi } from "../../services/event";
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-import { X, Calendar, MapPin, Users, Tag, FileText, Clock, Loader2 } from "lucide-react";
-=======
-import { X, Calendar, MapPin, Users, Tag, FileText, Clock, Loader2, Building2, Sparkles } from "lucide-react";
->>>>>>> Stashed changes
-=======
 import { barikoiApi } from "../../services/barikoi";
 import { X, Calendar, MapPin, Users, Tag, FileText, Clock, Loader2, Building2, Sparkles } from "lucide-react";
->>>>>>> main
 
 const TOPICS = ["Design", "Development", "Academic", "Nature", "Other"];
 const BARIKOI_API_KEY = import.meta.env.VITE_BARIKOI_API_KEY;
@@ -32,20 +24,11 @@ export default function CreateEventModal({ onClose, onEventCreated }) {
     maxAttendees: 10
   });
   const [isVisible, setIsVisible] = useState(false);
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-=======
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
 
-=======
-  const [suggestions, setSuggestions] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
-  
->>>>>>> main
   const searchTimeoutRef = useRef(null);
   const abortControllerRef = useRef(null);
   const locationInputRef = useRef(null);
@@ -63,10 +46,6 @@ export default function CreateEventModal({ onClose, onEventCreated }) {
       abortControllerRef.current = null;
     }
   }, []);
-<<<<<<< HEAD
->>>>>>> Stashed changes
-=======
->>>>>>> main
 
   useEffect(() => {
     setTimeout(() => setIsVisible(true), 10);
@@ -105,11 +84,6 @@ export default function CreateEventModal({ onClose, onEventCreated }) {
     }
   };
 
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-  return (
-    <div 
-=======
   // Search both Barikoi (direct, never fails) and local StudyDen spots (silently ignored on failure)
   const searchPlaces = async (query, signal) => {
     if (!query.trim()) return [];
@@ -253,76 +227,6 @@ export default function CreateEventModal({ onClose, onEventCreated }) {
       ref={overlayRef}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
->>>>>>> Stashed changes
-=======
-  const handleLocationChange = (value) => {
-    setFormData(prev => ({ ...prev, location: value }));
-    
-    cleanupPendingRequest();
-
-    if (value.trim().length < 3) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-
-    setShowSuggestions(true);
-    setIsSearching(true);
-
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    searchTimeoutRef.current = setTimeout(async () => {
-      try {
-        const data = await barikoiApi.search(value, 5, { signal: controller.signal });
-        
-        if (!controller.signal.aborted) {
-          setSuggestions(data.suggestions || []);
-        }
-      } catch (err) {
-        if (err.name === 'AbortError') return;
-        console.error("Search error:", err);
-        setSuggestions([]);
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsSearching(false);
-          abortControllerRef.current = null;
-        }
-      }
-    }, 300);
-  };
-
-  const selectSuggestion = (suggestion) => {
-    setFormData(prev => ({ ...prev, location: suggestion.address }));
-    setSuggestions([]);
-    setShowSuggestions(false);
-    cleanupPendingRequest();
-    setIsSearching(false);
-  };
-
-  const handleInputFocus = () => {
-    if (formData.location.trim().length >= 3) {
-      setShowSuggestions(true);
-    }
-  };
-
-  const handleMouseDown = (e) => {
-    setMouseDownTarget(e.target);
-  };
-
-  const handleMouseUp = (e) => {
-    if (mouseDownTarget === overlayRef.current && e.target === overlayRef.current) {
-      handleClose();
-    }
-    setMouseDownTarget(null);
-  };
-
-  return (
-    <div 
-      ref={overlayRef}
-      onMouseDown={handleMouseDown}
-      onMouseUp={handleMouseUp}
->>>>>>> main
       className={`fixed inset-0 flex items-center justify-center p-4 z-50 transition-all duration-300 ease-out ${
         isVisible ? 'bg-black/50 backdrop-blur-sm' : 'bg-black/0 backdrop-blur-0 pointer-events-none'
       }`}
@@ -351,20 +255,8 @@ export default function CreateEventModal({ onClose, onEventCreated }) {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-<<<<<<< Updated upstream
-              {/* Title */}
-              <div className="transform transition-all duration-300 delay-100" style={{ transform: isVisible ? 'translateY(0)' : 'translateY(20px)', opacity: isVisible ? 1 : 0 }}>
-<<<<<<< HEAD
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Event title
-                </label>
-=======
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Event title</label>
->>>>>>> Stashed changes
-=======
-                <label className="block text-sm font-medium text-gray-700 mb-1">Event title</label>
->>>>>>> main
                 <div className="relative">
                   <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <input
@@ -380,20 +272,8 @@ export default function CreateEventModal({ onClose, onEventCreated }) {
                 </div>
               </div>
 
-<<<<<<< Updated upstream
-              {/* Topic */}
-              <div className="transform transition-all duration-300 delay-150" style={{ transform: isVisible ? 'translateY(0)' : 'translateY(20px)', opacity: isVisible ? 1 : 0 }}>
-<<<<<<< HEAD
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Topic
-                </label>
-=======
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Topic</label>
->>>>>>> Stashed changes
-=======
-                <label className="block text-sm font-medium text-gray-700 mb-1">Topic</label>
->>>>>>> main
                 <div className="relative">
                   <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <select
@@ -408,20 +288,8 @@ export default function CreateEventModal({ onClose, onEventCreated }) {
                 </div>
               </div>
 
-<<<<<<< Updated upstream
-              {/* Description */}
-              <div className="transform transition-all duration-300 delay-200" style={{ transform: isVisible ? 'translateY(0)' : 'translateY(20px)', opacity: isVisible ? 1 : 0 }}>
-<<<<<<< HEAD
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description <span className="text-gray-400 text-xs">(optional)</span>
-                </label>
-=======
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description <span className="text-gray-400 text-xs">(optional)</span></label>
->>>>>>> Stashed changes
-=======
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description <span className="text-gray-400 text-xs">(optional)</span></label>
->>>>>>> main
                 <textarea
                   rows="3"
                   maxLength="500"
@@ -433,19 +301,8 @@ export default function CreateEventModal({ onClose, onEventCreated }) {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-<<<<<<< Updated upstream
-                <div className="transform transition-all duration-300 delay-250" style={{ transform: isVisible ? 'translateY(0)' : 'translateY(20px)', opacity: isVisible ? 1 : 0 }}>
-<<<<<<< HEAD
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date
-                  </label>
-=======
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
->>>>>>> Stashed changes
-=======
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
->>>>>>> main
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                     <input
@@ -459,19 +316,8 @@ export default function CreateEventModal({ onClose, onEventCreated }) {
                     />
                   </div>
                 </div>
-<<<<<<< Updated upstream
-                <div className="transform transition-all duration-300 delay-300" style={{ transform: isVisible ? 'translateY(0)' : 'translateY(20px)', opacity: isVisible ? 1 : 0 }}>
-<<<<<<< HEAD
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Time
-                  </label>
-=======
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
->>>>>>> Stashed changes
-=======
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
->>>>>>> main
                   <div className="relative">
                     <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                     <input
@@ -486,22 +332,8 @@ export default function CreateEventModal({ onClose, onEventCreated }) {
                 </div>
               </div>
 
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-              {/* Location */}
-              <div className="transform transition-all duration-300 delay-350" style={{ transform: isVisible ? 'translateY(0)' : 'translateY(20px)', opacity: isVisible ? 1 : 0 }}>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Location
-                </label>
-=======
               <div className="relative">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
->>>>>>> Stashed changes
-=======
-              {/* Location with Autocomplete */}
-              <div className="transform transition-all duration-300 delay-350 relative" style={{ transform: isVisible ? 'translateY(0)' : 'translateY(20px)', opacity: isVisible ? 1 : 0 }}>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
->>>>>>> main
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <input
@@ -522,33 +354,12 @@ export default function CreateEventModal({ onClose, onEventCreated }) {
                     </div>
                   )}
                 </div>
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-                <p className="text-xs text-gray-400 mt-1">
-                  We'll use OpenStreetMap to get coordinates
-                </p>
-=======
-                <p className="text-xs text-gray-400 mt-1">Start typing to see suggestions (StudyDen spots + Barikoi)</p>
->>>>>>> main
-              </div>
-
-              {/* Max attendees */}
-              <div className="transform transition-all duration-300 delay-400" style={{ transform: isVisible ? 'translateY(0)' : 'translateY(20px)', opacity: isVisible ? 1 : 0 }}>
-<<<<<<< HEAD
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Maximum attendees
-                </label>
-=======
                 <p className="text-xs text-gray-400 mt-1">Suggestions from StudyDen spots and map</p>
                 {searchError && <p className="text-xs text-red-500 mt-1">{searchError}</p>}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Maximum attendees</label>
->>>>>>> Stashed changes
-=======
-                <label className="block text-sm font-medium text-gray-700 mb-1">Maximum attendees</label>
->>>>>>> main
                 <div className="relative">
                   <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <input
@@ -575,21 +386,6 @@ export default function CreateEventModal({ onClose, onEventCreated }) {
         </Card>
       </div>
 
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-      {/* Animation keyframes */}
-      <style jsx>{`
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
-          20%, 40%, 60%, 80% { transform: translateX(2px); }
-        }
-        
-        .animate-shake {
-          animation: shake 0.5s ease-in-out;
-        }
-      `}</style>
-=======
       {showSuggestions && (suggestions.length > 0 || isSearching) && createPortal(
         <ul
           className="fixed z-[100] bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
@@ -600,41 +396,16 @@ export default function CreateEventModal({ onClose, onEventCreated }) {
               <Loader2 size={14} className="animate-spin" /> Searching...
             </li>
           )}
-=======
-      {/* Suggestions Portal */}
-      {showSuggestions && (suggestions.length > 0 || isSearching) && createPortal(
-        <ul 
-          className="fixed z-[100] bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
-          style={{
-            top: suggestionsPosition.top,
-            left: suggestionsPosition.left,
-            width: suggestionsPosition.width,
-          }}
-        >
-          {isSearching && (
-            <li className="px-4 py-2 text-gray-400 text-sm flex items-center gap-2">
-              <Loader2 size={14} className="animate-spin" />
-              Searching...
-            </li>
-          )}
           {!isSearching && suggestions.length === 0 && (
             <li className="px-4 py-2 text-gray-400 text-sm">No locations found</li>
           )}
->>>>>>> main
           {!isSearching && suggestions.map((place, idx) => (
             <li
               key={idx}
               className={`px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm flex items-start gap-2 ${
                 place.isLocal ? 'border-l-4 border-blue-500 bg-blue-50/30' : ''
               }`}
-<<<<<<< HEAD
               onClick={(e) => { e.stopPropagation(); selectSuggestion(place); }}
-=======
-              onClick={(e) => {
-                e.stopPropagation();
-                selectSuggestion(place);
-              }}
->>>>>>> main
             >
               {place.isLocal ? (
                 <Building2 size={14} className="text-blue-600 mt-0.5 flex-shrink-0" />
@@ -658,10 +429,6 @@ export default function CreateEventModal({ onClose, onEventCreated }) {
         </ul>,
         document.body
       )}
-<<<<<<< HEAD
->>>>>>> Stashed changes
-=======
->>>>>>> main
     </div>
   );
 }

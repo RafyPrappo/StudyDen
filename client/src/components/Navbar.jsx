@@ -12,13 +12,9 @@ import {
   LogOut,
   LogIn,
   UserPlus,
-<<<<<<< HEAD
   Plus,
   Shield,
-=======
-  Shield,
   Menu,
->>>>>>> main
 } from "lucide-react";
 
 const linkBase =
@@ -30,15 +26,15 @@ export default function Navbar() {
   const nav = useNavigate();
   const location = useLocation();
 
-<<<<<<< HEAD
-  useEffect(() => {
-    setShowCreateButton(location.pathname === "/events");
-  }, [location.pathname]);
-=======
+  const [showCreateButton, setShowCreateButton] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
->>>>>>> main
+
+  useEffect(() => {
+    setShowCreateButton(location.pathname === "/events");
+    setMenuOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     if (user) {
@@ -47,10 +43,6 @@ export default function Navbar() {
       return () => clearInterval(interval);
     }
   }, [user]);
-
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [location.pathname]);
 
   const fetchUnreadCount = async () => {
     try {
@@ -84,20 +76,7 @@ export default function Navbar() {
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center font-bold text-white flex-shrink-0">
             SD
           </div>
-<<<<<<< HEAD
-          <span className="text-lg font-semibold text-gray-900">StudyDen</span>
-        </NavLink>
-
-        <nav className="flex items-center">
-          <div
-            className={`flex items-center gap-1 transition-all duration-500 ease-in-out ${
-              showCreateButton ? "mr-8" : "mr-0"
-            }`}
-          >
-=======
-          <span className="text-lg font-semibold text-gray-900 truncate">
-            StudyDen
-          </span>
+          <span className="text-lg font-semibold text-gray-900 truncate">StudyDen</span>
         </NavLink>
 
         <button
@@ -109,47 +88,29 @@ export default function Navbar() {
         </button>
 
         <nav className="hidden lg:flex items-center">
-          <div className="flex items-center gap-1">
->>>>>>> main
-            <NavLink
-              to="/"
-              className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}
-            >
+          <div className={`flex items-center gap-1 transition-all duration-500 ease-in-out ${showCreateButton ? "mr-8" : "mr-0"}`}>
+            <NavLink to="/" className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}>
               <Home size={18} />
               <span className="hidden xl:inline">Home</span>
             </NavLink>
 
-            <NavLink
-              to={gatedTo("/spots")}
-              className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}
-            >
+            <NavLink to={gatedTo("/spots")} className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}>
               <MapPin size={18} />
               <span className="hidden xl:inline">Spots</span>
             </NavLink>
 
-            <NavLink
-              to={gatedTo("/events")}
-              className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}
-            >
+            <NavLink to={gatedTo("/events")} className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}>
               <Calendar size={18} />
               <span className="hidden xl:inline">Events</span>
             </NavLink>
 
-            <NavLink
-              to={gatedTo("/leaderboard")}
-              className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}
-            >
+            <NavLink to={gatedTo("/leaderboard")} className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}>
               <Trophy size={18} />
               <span className="hidden xl:inline">Leaderboard</span>
             </NavLink>
 
             {user && (
-              <NavLink
-                to="/profile"
-                className={({ isActive }) =>
-                  `${linkBase} ${isActive ? active : ""} relative`
-                }
-              >
+              <NavLink to="/profile" className={({ isActive }) => `${linkBase} ${isActive ? active : ""} relative`}>
                 <User size={18} />
                 <span className="hidden xl:inline">Profile</span>
                 {unreadNotifications > 0 && (
@@ -164,16 +125,9 @@ export default function Navbar() {
             )}
 
             {user && isAdmin && (
-              <NavLink
-                to="/admin"
-                className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}
-              >
+              <NavLink to="/admin" className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}>
                 <Shield size={18} />
-<<<<<<< HEAD
-                <span className="hidden sm:inline">Admin</span>
-=======
                 <span className="hidden xl:inline">Admin</span>
->>>>>>> main
               </NavLink>
             )}
           </div>
@@ -182,36 +136,24 @@ export default function Navbar() {
 
           {!user ? (
             <div className="flex items-center gap-1">
-              <NavLink
-                to="/login"
-                className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}
-              >
+              <NavLink to="/login" className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}>
                 <LogIn size={18} />
                 <span className="hidden xl:inline">Login</span>
               </NavLink>
-
-              <NavLink
-                to="/register"
-                className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}
-              >
+              <NavLink to="/register" className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}>
                 <UserPlus size={18} />
                 <span className="hidden xl:inline">Register</span>
               </NavLink>
             </div>
           ) : (
             <div className="flex items-center gap-2">
-<<<<<<< HEAD
               <div
                 className={`transition-all duration-500 ease-in-out ${
                   showCreateButton
                     ? "opacity-100 translate-x-0 w-auto ml-0"
                     : "opacity-0 translate-x-4 w-0 -ml-4"
                 }`}
-                style={{
-                  transition: "all 500ms cubic-bezier(0.4, 0, 0.2, 1)",
-                  overflow: "hidden",
-                  whiteSpace: "nowrap",
-                }}
+                style={{ transition: "all 500ms cubic-bezier(0.4, 0, 0.2, 1)", overflow: "hidden", whiteSpace: "nowrap" }}
               >
                 <Button
                   variant="primary"
@@ -223,144 +165,53 @@ export default function Navbar() {
                 </Button>
               </div>
 
-=======
->>>>>>> main
-              <Button
-                variant="ghost"
-                onClick={handleLogout}
-                disabled={loggingOut}
-                className="flex items-center gap-2"
-              >
+              <Button variant="ghost" onClick={handleLogout} disabled={loggingOut} className="flex items-center gap-2">
                 <LogOut size={16} />
-                <span className="hidden xl:inline">
-                  {loggingOut ? "Logging out..." : "Logout"}
-                </span>
+                <span className="hidden xl:inline">{loggingOut ? "Logging out..." : "Logout"}</span>
               </Button>
             </div>
           )}
         </nav>
       </div>
 
-<<<<<<< HEAD
-      <style>{`
-        @keyframes fallFromSky {
-          0% {
-            transform: translateY(-30px) rotate(-2deg);
-            opacity: 0;
-          }
-          40% {
-            transform: translateY(5px) rotate(1deg);
-            opacity: 0.95;
-          }
-          70% {
-            transform: translateY(-2px) rotate(-0.5deg);
-          }
-          100% {
-            transform: translateY(0) rotate(0);
-            opacity: 1;
-          }
-        }
-
-        .animate-fall-from-sky {
-          animation: fallFromSky 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-        }
-      `}</style>
-=======
-      <div
-        className={`lg:hidden overflow-hidden bg-white transition-all duration-300 ease-out ${
-          menuOpen
-            ? "max-h-[500px] opacity-100 border-t border-gray-200"
-            : "max-h-0 opacity-0"
-        }`}
-      >
-        <div
-          className={`px-4 py-4 space-y-2 transform transition-all duration-300 ease-out ${
-            menuOpen ? "translate-y-0 opacity-100" : "-translate-y-3 opacity-0"
-          }`}
-        >
-          <NavLink to="/" className={linkBase} onClick={() => setMenuOpen(false)}>
-            <Home size={18} /> Home
-          </NavLink>
-
-          <NavLink
-            to={gatedTo("/spots")}
-            className={linkBase}
-            onClick={() => setMenuOpen(false)}
-          >
-            <MapPin size={18} /> Spots
-          </NavLink>
-
-          <NavLink
-            to={gatedTo("/events")}
-            className={linkBase}
-            onClick={() => setMenuOpen(false)}
-          >
-            <Calendar size={18} /> Events
-          </NavLink>
-
-          <NavLink
-            to={gatedTo("/leaderboard")}
-            className={linkBase}
-            onClick={() => setMenuOpen(false)}
-          >
-            <Trophy size={18} /> Leaderboard
-          </NavLink>
-
-          {user && (
-            <NavLink
-              to="/profile"
-              className={linkBase}
-              onClick={() => setMenuOpen(false)}
-            >
-              <User size={18} /> Profile
-            </NavLink>
-          )}
-
-          {user && isAdmin && (
-            <NavLink
-              to="/admin"
-              className={linkBase}
-              onClick={() => setMenuOpen(false)}
-            >
-              <Shield size={18} /> Admin
-            </NavLink>
-          )}
-
+      <div className={`lg:hidden overflow-hidden bg-white transition-all duration-300 ease-out ${
+        menuOpen ? "max-h-[500px] opacity-100 border-t border-gray-200" : "max-h-0 opacity-0"
+      }`}>
+        <div className={`px-4 py-4 space-y-2 transform transition-all duration-300 ease-out ${
+          menuOpen ? "translate-y-0 opacity-100" : "-translate-y-3 opacity-0"
+        }`}>
+          <NavLink to="/" className={linkBase} onClick={() => setMenuOpen(false)}><Home size={18} /> Home</NavLink>
+          <NavLink to={gatedTo("/spots")} className={linkBase} onClick={() => setMenuOpen(false)}><MapPin size={18} /> Spots</NavLink>
+          <NavLink to={gatedTo("/events")} className={linkBase} onClick={() => setMenuOpen(false)}><Calendar size={18} /> Events</NavLink>
+          <NavLink to={gatedTo("/leaderboard")} className={linkBase} onClick={() => setMenuOpen(false)}><Trophy size={18} /> Leaderboard</NavLink>
+          {user && <NavLink to="/profile" className={linkBase} onClick={() => setMenuOpen(false)}><User size={18} /> Profile</NavLink>}
+          {user && isAdmin && <NavLink to="/admin" className={linkBase} onClick={() => setMenuOpen(false)}><Shield size={18} /> Admin</NavLink>}
           <div className="border-t pt-3 mt-3" />
-
           {!user ? (
             <>
-              <NavLink
-                to="/login"
-                className={linkBase}
-                onClick={() => setMenuOpen(false)}
-              >
-                <LogIn size={18} /> Login
-              </NavLink>
-
-              <NavLink
-                to="/register"
-                className={linkBase}
-                onClick={() => setMenuOpen(false)}
-              >
-                <UserPlus size={18} /> Register
-              </NavLink>
+              <NavLink to="/login" className={linkBase} onClick={() => setMenuOpen(false)}><LogIn size={18} /> Login</NavLink>
+              <NavLink to="/register" className={linkBase} onClick={() => setMenuOpen(false)}><UserPlus size={18} /> Register</NavLink>
             </>
           ) : (
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setMenuOpen(false);
-                  handleLogout();
-                }}
-              className="w-full justify-start bg-red-50 hover:bg-red-100 text-red-600"            
-              >
+            <Button variant="ghost" onClick={() => { setMenuOpen(false); handleLogout(); }}
+              className="w-full justify-start bg-red-50 hover:bg-red-100 text-red-600">
               <LogOut size={16} /> Logout
             </Button>
           )}
         </div>
       </div>
->>>>>>> main
+
+      <style>{`
+        @keyframes fallFromSky {
+          0% { transform: translateY(-30px) rotate(-2deg); opacity: 0; }
+          40% { transform: translateY(5px) rotate(1deg); opacity: 0.95; }
+          70% { transform: translateY(-2px) rotate(-0.5deg); }
+          100% { transform: translateY(0) rotate(0); opacity: 1; }
+        }
+        .animate-fall-from-sky {
+          animation: fallFromSky 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+      `}</style>
     </header>
   );
 }

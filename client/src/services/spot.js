@@ -67,9 +67,8 @@ export const spotApi = {
 
   saveReview: (id, data) =>
     api.post(`/api/spots/${id}/reviews`, data, { credentials: "include" }),
-<<<<<<< HEAD
-=======
-  
+
+  // New functions from main
   reportSpot: (id, data) =>
     api.post(`/api/spots/${id}/report`, data, { credentials: "include" }),
 
@@ -84,5 +83,4 @@ export const spotApi = {
 
   getFrequentSpots: () =>
     api.get("/api/users/frequent-spots", { credentials: "include" }),
->>>>>>> main
 };

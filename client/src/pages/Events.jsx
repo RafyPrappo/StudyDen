@@ -39,14 +39,8 @@ export default function EventsPage() {
     try {
       setLoading(true);
       setError("");
-<<<<<<< Updated upstream
-=======
       
-<<<<<<< HEAD
->>>>>>> Stashed changes
-=======
       // Build params: always include upcoming and ongoing
->>>>>>> main
       const params = {
         topic: selectedTopic !== "My Events" ? selectedTopic : undefined,
         status: "upcoming,ongoing",
@@ -54,25 +48,15 @@ export default function EventsPage() {
         limit: 9
       };
       if (searchQuery) params.search = searchQuery;
-<<<<<<< HEAD
-      const data = await eventApi.getEvents(params);
-      let filteredEvents = data.events || [];
-<<<<<<< Updated upstream
-      if (selectedTopic === "Joined Events" && user) {
-=======
-
-      if (selectedTopic === "My Events" && user) {
->>>>>>> Stashed changes
-=======
 
       const data = await eventApi.getEvents(params);
       let filteredEvents = data.events || [];
 
       // If "My Events" is selected, keep only events the user is attending
       if (selectedTopic === "My Events" && user) {
->>>>>>> main
         filteredEvents = filteredEvents.filter(e => e.isAttending);
       }
+
       setEvents(filteredEvents);
       setTotalPages(data.pagination?.pages || 1);
     } catch (err) {
@@ -130,7 +114,6 @@ export default function EventsPage() {
         </div>
       </div>
 
-<<<<<<< HEAD
       {/* ---------- FILTER CHIPS (scrollable on mobile) ---------- */}
       <div className="mb-10 px-4 sm:px-0">
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -151,25 +134,6 @@ export default function EventsPage() {
             </button>
           ))}
         </div>
-=======
-      <div className="flex justify-center gap-2 mb-10 overflow-x-auto pb-2 scrollbar-hide">
-        {TOPICS.map((topic) => (
-          <button
-            key={topic}
-            onClick={() => {
-              setSelectedTopic(topic);
-              setPage(1);
-            }}
-            className={`px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-              selectedTopic === topic
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            {topic}
-          </button>
-        ))}
->>>>>>> main
       </div>
       {/* -------------------------------------------------------- */}
 
@@ -232,8 +196,7 @@ export default function EventsPage() {
         </>
       )}
 
-<<<<<<< HEAD
-=======
+      {/* Floating Action Button (FAB) for creating events */}
       {user && (
         <button
           onClick={() => setShowCreateModal(true)}
@@ -244,7 +207,6 @@ export default function EventsPage() {
         </button>
       )}
 
->>>>>>> main
       {showCreateModal && (
         <CreateEventModal 
           onClose={() => setShowCreateModal(false)}

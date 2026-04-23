@@ -20,52 +20,6 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-<<<<<<< HEAD
-async function geocodeAddress(address) {
-  try {
-    console.log(`Geocoding address: ${address}`);
-    const response = await axios.get(
-      `https://nominatim.openstreetmap.org/search`,
-      {
-        params: { q: address, format: 'json', limit: 1, addressdetails: 1 },
-        headers: { 'User-Agent': 'StudyDen-App/1.0 (studyden@example.com)' },
-        timeout: 5000
-      }
-    );
-    if (!response.data || response.data.length === 0) {
-      throw new Error(`No results found for address: ${address}`);
-    }
-    const result = response.data[0];
-    return {
-      lat: parseFloat(result.lat),
-      lng: parseFloat(result.lon),
-      formattedAddress: result.display_name,
-      placeId: result.osm_id?.toString() || `osm_${Date.now()}`
-    };
-  } catch (err) {
-    console.error("Geocoding error:", err.message);
-    console.log("Using fallback coordinates for Dhaka");
-    return {
-      lat: 23.8103,
-      lng: 90.4125,
-      formattedAddress: address,
-      placeId: `fallback_${Date.now()}`
-    };
-  }
-}
-
-<<<<<<< Updated upstream
-async function rateLimitedGeocode(address) {
-  const now = Date.now();
-  const timeSinceLastRequest = now - lastRequestTime;
-  if (timeSinceLastRequest < 1100) {
-    await new Promise(resolve => setTimeout(resolve, 1100 - timeSinceLastRequest));
-  }
-  lastRequestTime = Date.now();
-  return geocodeAddress(address);
-}
-=======
-=======
 // Helper: combine event date and time into a single Date object
 function getEventDateTime(event) {
   const [hours, minutes] = event.time.split(':').map(Number);
@@ -74,16 +28,14 @@ function getEventDateTime(event) {
   return dt;
 }
 
->>>>>>> main
 // ========== TEST VALUES – CHANGE BACK TO 30 FOR PRODUCTION ==========
 const REQUIRED_HOST_MINUTES = 1;        // 1 minute for testing
 const REQUIRED_ATTENDEE_MINUTES = 1;    // 1 minute for testing
 // ====================================================================
 
 // Time window constants (in minutes)
-<<<<<<< HEAD
-const CHECK_IN_WINDOW_BEFORE = 30;
-const CHECK_IN_WINDOW_AFTER = 180;
+const CHECK_IN_WINDOW_BEFORE = 30;      // can check in up to 30 min before start
+const CHECK_IN_WINDOW_AFTER = 180;      // can check in up to 3 hours after start
 
 // ----- AUTO-CLEANUP: delete events older than 24 hours past start time -----
 async function cleanupOldEvents() {
@@ -112,11 +64,6 @@ async function cleanupOldEvents() {
 // Run cleanup on startup
 cleanupOldEvents();
 // ---------------------------------------------------------------------------
->>>>>>> Stashed changes
-=======
-const CHECK_IN_WINDOW_BEFORE = 30;      // can check in up to 30 min before start
-const CHECK_IN_WINDOW_AFTER = 180;      // can check in up to 3 hours after start
->>>>>>> main
 
 exports.createEvent = async (req, res, next) => {
   try {
@@ -125,13 +72,6 @@ exports.createEvent = async (req, res, next) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-<<<<<<< HEAD
-    const geocodeResult = await rateLimitedGeocode(location);
-    const event = await Event.create({
-      title, topic, description,
-      date: new Date(date), time, location,
-      coordinates: { lat: geocodeResult.lat, lng: geocodeResult.lng },
-=======
     const geocodeResult = await geocodeAddress(location);
 
     const event = await Event.create({
@@ -141,7 +81,6 @@ exports.createEvent = async (req, res, next) => {
         lat: geocodeResult.lat,
         lng: geocodeResult.lng
       },
->>>>>>> main
       formattedAddress: geocodeResult.formattedAddress,
       placeId: geocodeResult.placeId,
       maxAttendees,
@@ -160,22 +99,6 @@ exports.getEvents = async (req, res, next) => {
   try {
     const { topic, status = "upcoming,ongoing", search, page = 1, limit = 10 } = req.query;
     const skip = (page - 1) * limit;
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-    const filter = { status };
-=======
-    const statusArray = status.split(',').map(s => s.trim());
-    const filter = { status: { $in: statusArray } };
-
->>>>>>> Stashed changes
-    if (topic && topic !== "All") filter.topic = topic;
-    if (search) filter.title = { $regex: search, $options: "i" };
-
-    // Safety: exclude events with a date older than 24 hours from now
-    const now = new Date();
-    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    filter.date = { $gte: oneDayAgo };
-=======
     
     // Allow multiple statuses (comma-separated)
     const statusArray = status.split(',').map(s => s.trim());
@@ -183,7 +106,11 @@ exports.getEvents = async (req, res, next) => {
     
     if (topic && topic !== "All") filter.topic = topic;
     if (search) filter.title = { $regex: search, $options: "i" };
->>>>>>> main
+
+    // Safety: exclude events with a date older than 24 hours from now
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    filter.date = { $gte: oneDayAgo };
 
     const events = await Event.find(filter)
       .populate("host", "name email points badges profilePhoto _id")
@@ -219,15 +146,6 @@ exports.getEvent = async (req, res, next) => {
     const event = await Event.findById(id)
       .populate("host", "name email points badges profilePhoto _id")
       .populate("attendees", "name email points badges profilePhoto");
-<<<<<<< HEAD
-    if (!event) return res.status(404).json({ message: "Event not found" });
-    if (req.user) {
-      const isAttending = event.attendees.some(attendee => attendee._id.toString() === req.user.id);
-      event._doc.isAttending = isAttending;
-      event._doc.isFavorited = event.isUserFavorited(req.user.id);
-      event._doc.hasSynced = event.userCalendarEvents && event.userCalendarEvents.has(req.user.id);
-    }
-=======
       
     if (!event) return res.status(404).json({ message: "Event not found" });
     
@@ -257,7 +175,6 @@ exports.getEvent = async (req, res, next) => {
       event._doc.attendeesCompleted = [];
     }
     
->>>>>>> main
     res.json({ event });
   } catch (err) {
     next(err);
@@ -279,18 +196,9 @@ exports.joinEvent = async (req, res, next) => {
     if (eventDateTime < now) {
       return res.status(400).json({ message: "Cannot join past events" });
     }
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-    if (event.status !== "upcoming") {
-=======
-
-    if (event.status !== "upcoming" && event.status !== "ongoing") {
->>>>>>> Stashed changes
-=======
 
     // Allow joining if status is upcoming OR ongoing
     if (event.status !== "upcoming" && event.status !== "ongoing") {
->>>>>>> main
       return res.status(400).json({ message: "Cannot join completed or cancelled event" });
     }
     if (event.isFull) {
@@ -321,11 +229,7 @@ exports.joinEvent = async (req, res, next) => {
     const updatedEvent = await Event.findById(id).populate("host", "name email points badges profilePhoto _id");
     updatedEvent._doc.isAttending = true;
     res.json({
-<<<<<<< HEAD
-      message: "Successfully joined event. Points will be awarded after attending for 30 minutes.",
-=======
       message: `Successfully joined event. Points will be awarded after attending for ${REQUIRED_ATTENDEE_MINUTES} minute(s) after the event starts.`,
->>>>>>> main
       event: { ...updatedEvent.toObject(), isAttending: true, spotsFilled: updatedEvent.attendees.length }
     });
   } catch (err) {
@@ -351,15 +255,6 @@ exports.leaveEvent = async (req, res, next) => {
       return res.status(400).json({ message: "Not attending this event" });
     }
 
-<<<<<<< HEAD
-    // Remove from Google Calendar if synced
-    const { deleteCalendarEvent } = require("../services/calendar.service");
-    if (event.userCalendarEvents && event.userCalendarEvents.has(req.user.id)) {
-      const calendarEventId = event.userCalendarEvents.get(req.user.id);
-      await deleteCalendarEvent(req.user.id, calendarEventId);
-      event.userCalendarEvents.delete(req.user.id);
-      await event.save();
-=======
     try {
       const { deleteCalendarEvent } = require("../services/calendar.service");
       if (event.userCalendarEvents && event.userCalendarEvents.has(req.user.id)) {
@@ -369,7 +264,6 @@ exports.leaveEvent = async (req, res, next) => {
       }
     } catch (err) {
       console.error("Failed to delete calendar event during leave:", err.message);
->>>>>>> main
     }
 
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -388,12 +282,7 @@ exports.leaveEvent = async (req, res, next) => {
     user.joinedEvents = user.joinedEvents.filter(eId => eId.toString() !== event._id.toString());
     await user.save();
 
-<<<<<<< HEAD
-    const now = new Date();
-    const hoursUntilEvent = (eventDate - now) / (1000 * 60 * 60);
-=======
     const hoursUntilEvent = (eventDateTime - now) / (1000 * 60 * 60);
->>>>>>> main
     if (hoursUntilEvent < 2) {
       user.noShowCount = (user.noShowCount || 0) + 1;
       if (user.noShowCount >= 5) {
@@ -458,24 +347,6 @@ exports.deleteEvent = async (req, res, next) => {
       return res.json({ message: "Event already cancelled" });
     }
 
-<<<<<<< HEAD
-    // Remove from Google Calendar for all users who synced
-    const { deleteCalendarEvent } = require("../services/calendar.service");
-    if (event.userCalendarEvents && event.userCalendarEvents.size > 0) {
-      for (const [userId, calendarEventId] of event.userCalendarEvents.entries()) {
-        try {
-          await deleteCalendarEvent(userId, calendarEventId);
-          console.log(`Deleted calendar event for user ${userId}`);
-        } catch (err) {
-          console.error(`Failed to delete calendar event for user ${userId}:`, err.message);
-        }
-      }
-    }
-
-    const now = new Date();
-    const eventDate = new Date(event.date);
-    const hoursUntilEvent = (eventDate - now) / (1000 * 60 * 60);
-=======
     try {
       const { deleteCalendarEvent } = require("../services/calendar.service");
       if (event.userCalendarEvents && event.userCalendarEvents.size > 0) {
@@ -494,7 +365,6 @@ exports.deleteEvent = async (req, res, next) => {
     const now = new Date();
     const eventDateTime = getEventDateTime(event);
     const hoursUntilEvent = (eventDateTime - now) / (1000 * 60 * 60);
->>>>>>> main
     if (hoursUntilEvent < 48 && hoursUntilEvent >= 24) {
       const host = await User.findById(event.host);
       host.points = Math.max(0, host.points - 100);
@@ -549,11 +419,6 @@ exports.completeEvent = async (req, res, next) => {
       return res.status(400).json({ message: "Host must be present at the event location" });
     }
     const now = new Date();
-<<<<<<< HEAD
-    const hostDuration = (now - event.startedAt) / (1000 * 60);
-    if (hostDuration < 30) {
-      return res.status(400).json({ message: `Host must be at the event location for at least 30 minutes. Current duration: ${Math.floor(hostDuration)} minutes` });
-=======
     const eventDateTime = getEventDateTime(event);
     if (now < eventDateTime) {
       return res.status(400).json({ message: "Cannot complete event before it starts" });
@@ -564,7 +429,6 @@ exports.completeEvent = async (req, res, next) => {
       return res.status(400).json({ 
         message: `Host must be at the event location for at least ${REQUIRED_HOST_MINUTES} minute(s). Current duration: ${Math.floor(hostDuration)} minutes` 
       });
->>>>>>> main
     }
     event.status = "completed";
     event.endedAt = now;
@@ -595,22 +459,11 @@ exports.completeEvent = async (req, res, next) => {
 };
 
 exports.trackLocation = async (req, res, next) => {
-  // ... keep your existing implementation (unchanged)
   try {
     const { id } = req.params;
     const { lat, lng } = req.body;
     const event = await Event.findById(id);
     if (!event) return res.status(404).json({ message: "Event not found" });
-<<<<<<< HEAD
-    const now = new Date();
-    const eventTime = new Date(event.date);
-    const [hours, minutes] = event.time.split(':').map(Number);
-    eventTime.setHours(hours, minutes, 0, 0);
-    const minutesDiff = Math.abs((now - eventTime) / (1000 * 60));
-    if (minutesDiff > 180) {
-      return res.status(400).json({ message: "Not within tracking window" });
-    }
-=======
 
     const now = new Date();
     const eventDateTime = getEventDateTime(event);
@@ -628,7 +481,6 @@ exports.trackLocation = async (req, res, next) => {
       });
     }
 
->>>>>>> main
     const distance = calculateDistance(lat, lng, event.coordinates.lat, event.coordinates.lng);
     const isWithinRadius = distance <= (event.radius || 100);
     if (req.user.id === event.host.toString()) {
@@ -643,9 +495,6 @@ exports.trackLocation = async (req, res, next) => {
         event.hostPresent = false;
       }
       await event.save();
-<<<<<<< HEAD
-      return res.json({ role: "host", withinRadius: isWithinRadius, hostPresent: event.hostPresent, startedAt: event.startedAt, status: event.status, distance });
-=======
       return res.json({ 
         role: "host", 
         withinRadius: isWithinRadius, 
@@ -655,20 +504,9 @@ exports.trackLocation = async (req, res, next) => {
         distance,
         requiredMinutes: REQUIRED_HOST_MINUTES
       });
->>>>>>> main
     }
     if (event.attendees.includes(req.user.id)) {
       const timer = event.getTimerForUser(req.user.id);
-<<<<<<< HEAD
-      if (event.status === "ongoing" && event.hostPresent) {
-        if (isWithinRadius) {
-          if (!timer.joinedAt) timer.joinedAt = now;
-          timer.lastSeenAt = now;
-          timer.hostWasPresent = true;
-          const continuousMinutes = (now - timer.joinedAt) / (1000 * 60);
-          timer.totalMinutes = continuousMinutes;
-          if (continuousMinutes >= 1 && !timer.present) {
-=======
       
       // Only allow time accrual after event has started
       const canAccrueTime = now >= eventDateTime;
@@ -677,56 +515,9 @@ exports.trackLocation = async (req, res, next) => {
         if (isWithinRadius) {
           // Mark as present immediately (so they appear in attendeesPresent)
           if (!timer.present) {
->>>>>>> main
             timer.present = true;
             if (!event.attendeesPresent.includes(req.user.id)) event.attendeesPresent.push(req.user.id);
           }
-<<<<<<< HEAD
-          if (continuousMinutes >= 30 && !timer.completed) {
-            timer.completed = true;
-            timer.completedAt = now;
-            if (!event.attendeesCompleted.includes(req.user.id)) {
-              event.attendeesCompleted.push(req.user.id);
-              const user = await User.findById(req.user.id);
-              const alreadyCompleted = user.completedEvents?.includes(event._id);
-              if (!alreadyCompleted) {
-                let pointsEarned = 0;
-                if (timer.hostWasPresent) {
-                  pointsEarned = 10;
-                  user.points += 10;
-                } else {
-                  pointsEarned = 20;
-                  user.points += 20;
-                  user.dedicatedCount = (user.dedicatedCount || 0) + 1;
-                  if (user.dedicatedCount >= 3 && !user.badges.includes("Dedicated")) {
-                    user.badges.push("Dedicated");
-                    await Notification.create({
-                      user: user._id,
-                      type: "badge_earned",
-                      title: "New Badge Earned!",
-                      message: "Congratulations! You've earned the Dedicated badge for staying when hosts ditched."
-                    });
-                  }
-                }
-                user.completedEvents = [...(user.completedEvents || []), event._id];
-                await Notification.create({
-                  user: user._id,
-                  type: "points_earned",
-                  title: "Points Earned!",
-                  message: `You earned ${pointsEarned} points for attending "${event.title}".`,
-                  event: event._id
-                });
-                const newBadges = PointsCalculator.checkNewBadges(user);
-                if (newBadges.length > 0) {
-                  user.badges = [...(user.badges || []), ...newBadges];
-                  for (const badge of newBadges) {
-                    await Notification.create({
-                      user: user._id,
-                      type: "badge_earned",
-                      title: "New Badge Earned!",
-                      message: `Congratulations! You've earned the ${badge} badge.`
-                    });
-=======
           
           // Only start the timer if event has actually started
           if (canAccrueTime) {
@@ -784,14 +575,9 @@ exports.trackLocation = async (req, res, next) => {
                         message: `Congratulations! You've earned the ${badge} badge.`
                       });
                     }
->>>>>>> main
                   }
                   await user.save();
                 }
-<<<<<<< HEAD
-                await user.save();
-=======
->>>>>>> main
               }
             }
           } else {
@@ -803,15 +589,10 @@ exports.trackLocation = async (req, res, next) => {
           timer.lastSeenAt = null;
         }
       }
-<<<<<<< HEAD
-      event.attendeeTimers.set(req.user.id.toString(), timer);
-      await event.save();
-=======
       
       event.attendeeTimers.set(req.user.id.toString(), timer);
       await event.save();
       
->>>>>>> main
       return res.json({
         role: "attendee",
         withinRadius: isWithinRadius,
@@ -836,7 +617,6 @@ exports.trackLocation = async (req, res, next) => {
 };
 
 exports.getEventStatus = async (req, res, next) => {
-  // ... unchanged
   try {
     const { id } = req.params;
     const event = await Event.findById(id)
@@ -871,7 +651,6 @@ exports.getEventStatus = async (req, res, next) => {
 };
 
 exports.markAttendance = async (req, res, next) => {
-  // ... unchanged
   try {
     const { id } = req.params;
     const { attendeeIds } = req.body;
@@ -895,7 +674,6 @@ exports.markAttendance = async (req, res, next) => {
 };
 
 exports.submitEndorsement = async (req, res, next) => {
-  // ... unchanged
   try {
     const { id } = req.params;
     const { endorsed } = req.body;
@@ -904,17 +682,6 @@ exports.submitEndorsement = async (req, res, next) => {
     if (event.status !== "completed") {
       return res.status(400).json({ message: "Event not completed yet" });
     }
-<<<<<<< HEAD
-    if (!event.attendeesPresent.includes(req.user.id)) {
-      return res.status(400).json({ message: "You were not marked as present" });
-    }
-    let endorsement = await Endorsement.findOne({ event: event._id, attendee: req.user.id });
-    if (!endorsement) {
-      endorsement = new Endorsement({ event: event._id, attendee: req.user.id, host: event.host });
-    }
-    endorsement.endorsed = endorsed;
-    endorsement.present = true;
-=======
     // Only attendees who completed the required time can endorse
     if (!event.attendeesCompleted.includes(req.user.id)) {
       return res.status(400).json({ message: "You must complete the required attendance time to endorse" });
@@ -932,16 +699,12 @@ exports.submitEndorsement = async (req, res, next) => {
       endorsed,
       present: true
     });
->>>>>>> main
     await endorsement.save();
     const totalPresent = event.attendeesPresent.length;
     const totalEndorsements = await Endorsement.countDocuments({ event: event._id, endorsed: true });
     const endorsementPercentage = totalPresent > 0 ? (totalEndorsements / totalPresent) * 100 : 0;
     event.endorsement = Math.round(endorsementPercentage);
-<<<<<<< HEAD
-=======
 
->>>>>>> main
     if (endorsementPercentage >= 60) {
       event.isSuccessful = true;
       const host = await User.findById(event.host);
@@ -966,8 +729,6 @@ exports.submitEndorsement = async (req, res, next) => {
           });
         }
       }
-<<<<<<< HEAD
-=======
 
       const successfulEventsCount = await Event.countDocuments({ host: host._id, isSuccessful: true });
       if (successfulEventsCount >= 5 && !host.badges.includes("Organizer")) {
@@ -980,7 +741,6 @@ exports.submitEndorsement = async (req, res, next) => {
         });
       }
 
->>>>>>> main
       const newBadges = PointsCalculator.checkNewBadges(host);
       if (newBadges.length > 0) {
         host.badges = [...(host.badges || []), ...newBadges];
@@ -995,11 +755,7 @@ exports.submitEndorsement = async (req, res, next) => {
       }
       await host.save();
     }
-<<<<<<< HEAD
-    event.status = "completed";
-=======
 
->>>>>>> main
     await event.save();
     res.json({
       endorsement: endorsementPercentage,

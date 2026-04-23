@@ -25,13 +25,10 @@ import {
   Clock3,
   Volume2,
   UserCheck,
-<<<<<<< HEAD
-=======
   Navigation,
   CheckCircle,
   AlertTriangle,
   Building2,
->>>>>>> main
 } from "lucide-react";
 
 const amenityIcons = {
@@ -85,8 +82,6 @@ export default function SpotDetails() {
 
   const [myLatestCheckIn, setMyLatestCheckIn] = useState(null);
   const [latestCheckIn, setLatestCheckIn] = useState(null);
-<<<<<<< HEAD
-=======
   const [analytics, setAnalytics] = useState(null);
 
   const mapContainerRef = useRef(null);
@@ -101,14 +96,11 @@ export default function SpotDetails() {
   const [liveLocation, setLiveLocation] = useState(null);
   const [isTracking, setIsTracking] = useState(false);
   const [autoFollow, setAutoFollow] = useState(true);
->>>>>>> main
 
   useEffect(() => {
     fetchSpotDetails();
   }, [id]);
 
-<<<<<<< HEAD
-=======
   useEffect(() => {
     if (!spot?.location?.lat || !spot?.location?.lng) return;
     if (!window.bkoigl || !mapContainerRef.current || mapRef.current) return;
@@ -181,31 +173,21 @@ export default function SpotDetails() {
     mapRef.current.fitBounds(bounds, { padding: 50 });
   }, [routeData]);
 
->>>>>>> main
   const fetchSpotDetails = async () => {
     try {
       setLoading(true);
       setError("");
 
-<<<<<<< HEAD
-      const [spotData, checkInData] = await Promise.all([
-        spotApi.getSpot(id),
-        spotApi.getCheckInStatus(id),
-=======
       const [spotData, checkInData, analyticsData] = await Promise.all([
         spotApi.getSpot(id),
         spotApi.getCheckInStatus(id),
         spotApi.getSpotAnalytics(id),
->>>>>>> main
       ]);
 
       setSpot(spotData.spot);
       setMyLatestCheckIn(checkInData.myLatestCheckIn || null);
       setLatestCheckIn(checkInData.latestCheckIn || null);
-<<<<<<< HEAD
-=======
       setAnalytics(analyticsData.analytics || null);
->>>>>>> main
     } catch (err) {
       setError(err.message || "Failed to load study spot");
       console.error(err);
@@ -255,8 +237,6 @@ export default function SpotDetails() {
     }
   };
 
-<<<<<<< HEAD
-=======
   const handleDirection = async () => {
     if (!spot?.location?.lat || !spot?.location?.lng) {
       alert("Location coordinates are not available for this spot yet.");
@@ -370,7 +350,6 @@ export default function SpotDetails() {
     setIsTracking(false);
   };
 
->>>>>>> main
   const formatDateTime = (dateValue) => {
     if (!dateValue) return "N/A";
 
@@ -425,11 +404,7 @@ export default function SpotDetails() {
   return (
     <Container>
       <div className="max-w-7xl mx-auto">
-<<<<<<< HEAD
-        <div className="flex items-center justify-between gap-3 mb-6">
-=======
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
->>>>>>> main
           <Link to="/spots">
             <Button variant="ghost">
               <ArrowLeft size={16} />
@@ -464,15 +439,6 @@ export default function SpotDetails() {
             <Card className="p-6 sm:p-8">
               <div className="flex items-start justify-between gap-4 mb-5">
                 <div>
-<<<<<<< HEAD
-                  <span
-                    className={`inline-flex px-3 py-1 rounded-full text-xs font-medium border mb-4 ${
-                      typeStyles[spot.type] || typeStyles.Public
-                    }`}
-                  >
-                    {spot.type}
-                  </span>
-=======
                   <div className="flex flex-wrap items-center gap-2 mb-4">
                     <span
                       className={`inline-flex px-3 py-1 rounded-full text-xs font-medium border ${
@@ -499,7 +465,6 @@ export default function SpotDetails() {
                       </span>
                     )}
                   </div>
->>>>>>> main
 
                   <h1 className="text-3xl font-bold text-gray-900 mb-3">
                     {spot.title}
@@ -513,11 +478,7 @@ export default function SpotDetails() {
                     <span>{spot.address}</span>
                   </div>
 
-<<<<<<< HEAD
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-=======
                   <div className="flex items-center gap-2 text-sm text-gray-500 mt-3">
->>>>>>> main
                     <CalendarDays size={16} className="text-gray-400" />
                     <span>Posted on {createdDate}</span>
                   </div>
@@ -559,8 +520,6 @@ export default function SpotDetails() {
               </div>
 
               <div className="mb-8">
-<<<<<<< HEAD
-=======
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <h2 className="text-lg font-semibold text-gray-900">
                     Route Map
@@ -671,7 +630,6 @@ export default function SpotDetails() {
               )}
 
               <div className="mb-8">
->>>>>>> main
                 <h2 className="text-lg font-semibold text-gray-900 mb-3">
                   Check In
                 </h2>
@@ -701,19 +659,11 @@ export default function SpotDetails() {
                   <div className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors">
                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 overflow-hidden flex-shrink-0">
                       {spot.postedBy?.profilePhoto ? (
-<<<<<<< HEAD
-                        <img
-                          src={`http://localhost:5000${spot.postedBy.profilePhoto}`}
-                          alt={spot.postedBy?.name}
-                          className="w-full h-full object-cover"
-                        />
-=======
                       <img
                         src={`${import.meta.env.VITE_API_BASE_URL}${spot.postedBy.profilePhoto}`}
                         alt={spot.postedBy?.name}
                         className="w-full h-full object-cover"
                       />
->>>>>>> main
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-white font-semibold text-lg">
                           {spot.postedBy?.name?.charAt(0).toUpperCase() || "?"}
@@ -934,18 +884,6 @@ export default function SpotDetails() {
                 </p>
               )}
             </Card>
-<<<<<<< HEAD
-          </div>
-
-          <div className="lg:col-span-1 self-start">
-
-            <SpotReviewsCard
-             spotId={spot._id}
-             canReview={canReview}
-             amenities={spot.amenities || []}
-            />
-
-=======
 
             <Card className="p-6 mt-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
@@ -1021,13 +959,12 @@ export default function SpotDetails() {
           </div>
 
           <div className="lg:col-span-1 self-start">
-          <SpotReviewsCard
-            spotId={spot._id}
-            canReview={canReview}
-            amenities={spot.amenities || []}
-            analytics={analytics}
-          />
->>>>>>> main
+            <SpotReviewsCard
+              spotId={spot._id}
+              canReview={canReview}
+              amenities={spot.amenities || []}
+              analytics={analytics}
+            />
           </div>
         </div>
       </div>

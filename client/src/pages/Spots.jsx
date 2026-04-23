@@ -5,12 +5,8 @@ import Button from "../components/ui/Button";
 import SpotCard from "../components/spots/SpotCard";
 import CreateSpotModal from "../components/spots/CreateSpotModal";
 import { spotApi } from "../services/spot";
-<<<<<<< HEAD
-import { Search, Loader2, Plus, Star } from "lucide-react";
-=======
 import { useAuth } from "../context/AuthContext";
 import { Search, Loader2, Plus, Star, SlidersHorizontal } from "lucide-react";
->>>>>>> main
 
 const TYPES = ["All", "Public", "Private"];
 
@@ -113,10 +109,6 @@ export default function Spots() {
   };
 
   useEffect(() => {
-<<<<<<< HEAD
-    fetchSpots();
-  }, [selectedType, selectedAmenity, selectedRating, page]);
-=======
     if (isPreferenceMode) {
       fetchPreferredSpots();
     } else {
@@ -125,7 +117,6 @@ export default function Spots() {
 
     fetchFavouriteIds();
   }, [selectedType, selectedAmenity, selectedRating, page, isPreferenceMode]);
->>>>>>> main
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -179,7 +170,6 @@ export default function Spots() {
               Search
             </Button>
 
-
             <Button
               type="button"
               className="h-12 px-5 whitespace-nowrap"
@@ -188,8 +178,6 @@ export default function Spots() {
               <Plus size={16} />
               Post Spot
             </Button>
-
-
 
             {user && (
               <Button
@@ -212,47 +200,6 @@ export default function Spots() {
         </div>
       )}
 
-<<<<<<< HEAD
-        <div className="flex justify-center gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
-          {AMENITY_FILTERS.map((amenity) => (
-            <button
-              key={amenity}
-              onClick={() => {
-                setSelectedAmenity(amenity);
-                setPage(1);
-              }}
-              className={`px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                selectedAmenity === amenity
-                  ? "bg-slate-800 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              {amenity}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex justify-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-          {RATING_FILTERS.map((rating) => (
-            <button
-              key={rating.value}
-              onClick={() => {
-                setSelectedRating(rating.value);
-                setPage(1);
-              }}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                selectedRating === rating.value
-                  ? "bg-amber-500 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              <Star size={14} />
-              {rating.label}
-            </button>
-          ))}
-        </div>
-      </div>
-=======
       {!isPreferenceMode && (
         <div className="mb-6">
           <div className="flex justify-center gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
@@ -314,7 +261,6 @@ export default function Spots() {
           </div>
         </div>
       )}
->>>>>>> main
 
       {error && (
         <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex items-center gap-3">
