@@ -1,6 +1,7 @@
 const SpotReview = require("../models/SpotReview");
 const { PointsCalculator } = require("../utils/pointsCalculator"); // Prappo
 const Notification = require("../models/Notification"); // Prappo
+<<<<<<< HEAD
 
 
 exports.createOrUpdateSpotReview = async (req, res, next) => {
@@ -131,6 +132,115 @@ const NOISE_LABELS = {
 
 const Spot = require("../models/Spot");
 const User = require("../models/User");
+=======
+const SpotCheckIn = require("../models/SpotCheckIn");
+const Spot = require("../models/Spot");
+const User = require("../models/User");
+const mongoose = require("mongoose");
+const axios = require("axios");
+
+const buildAIReviewPrompt = ({ spotTitle, reviews, peakHourLabel }) => {
+  const formattedReviews = reviews
+    .map((review, index) => {
+      const ratingText = `Rating: ${review.rating}/5`;
+      const text = review.reviewText?.trim() || "No written review";
+      const amenities =
+        review.availableAmenities?.length > 0
+          ? `Amenities mentioned: ${review.availableAmenities.join(", ")}`
+          : "Amenities mentioned: None";
+
+      return `${index + 1}. ${ratingText}\nReview: ${text}\n${amenities}`;
+    })
+    .join("\n\n");
+
+  return `
+You are summarizing user reviews for a student study-spot platform called StudyDen.
+
+Spot title: ${spotTitle}
+Peak hour from real check-in analytics: ${peakHourLabel || "Not available"}
+
+Based only on the reviews below, generate a JSON object with this exact structure:
+{
+  "summary": "2-4 sentence neutral summary",
+  "pros": ["short point", "short point", "short point"],
+  "cons": ["short point", "short point", "short point"]
+}
+
+Rules:
+- Return ONLY valid JSON.
+- Do not include markdown.
+- Do not invent facts not supported by reviews.
+- Keep pros and cons concise.
+- If there is not enough information for a section, return an empty array for it.
+- Focus on study environment, comfort, noise, amenities, crowd, and usefulness.
+
+Reviews:
+${formattedReviews}
+  `.trim();
+};
+
+const parseAIJson = (text) => {
+  if (!text) {
+    return {
+      summary: "",
+      pros: [],
+      cons: [],
+    };
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        return JSON.parse(match[0]);
+      } catch (innerErr) {
+        return {
+          summary: text,
+          pros: [],
+          cons: [],
+        };
+      }
+    }
+
+    return {
+      summary: text,
+      pros: [],
+      cons: [],
+    };
+  }
+};
+const CROWD_LABELS = {
+  1: "Very Low",
+  2: "Low",
+  3: "Moderate",
+  4: "Busy",
+  5: "Packed",
+};
+
+const NOISE_LABELS = {
+  1: "Silent",
+  2: "Quiet",
+  3: "Moderate",
+  4: "Noisy",
+  5: "Very Noisy",
+};
+
+const getNearestLabel = (value, labels) => {
+  if (!value) return "N/A";
+
+  const rounded = Math.min(5, Math.max(1, Math.round(value)));
+  return labels[rounded] || "N/A";
+};
+
+const getCrowdStatusFromAverage = (value) => {
+  if (value === null || value === undefined) return "N/A";
+  if (value <= 2) return "Low";
+  if (value <= 3.5) return "Medium";
+  return "High";
+};
+>>>>>>> main
 
 const ALLOWED_AMENITIES = [
   "WiFi",
@@ -141,11 +251,121 @@ const ALLOWED_AMENITIES = [
   "Parking",
   "Washroom",
   "Group Seating",
+  "Smoking Zone",
 ];
+
+exports.createOrUpdateSpotReview = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { rating, reviewText = "", availableAmenities = [] } = req.body;
+
+    const parsedRating = parseInt(rating, 10);
+
+    if (![1, 2, 3, 4, 5].includes(parsedRating)) {
+      return res.status(400).json({
+        message: "Rating must be between 1 and 5",
+      });
+    }
+
+    const spot = await Spot.findById(id);
+    if (!spot) {
+      return res.status(404).json({ message: "Spot not found" });
+    }
+
+    const hasCheckedIn = await SpotCheckIn.exists({
+      spot: id,
+      user: req.user.id,
+    });
+
+    if (!hasCheckedIn) {
+      return res.status(403).json({
+        message: "You must check in at this spot before leaving a review",
+      });
+    }
+
+    const normalizedAmenities = Array.isArray(availableAmenities)
+      ? availableAmenities.filter((item) => ALLOWED_AMENITIES.includes(item))
+      : [];
+
+    const review = await SpotReview.findOneAndUpdate(
+      { spot: id, user: req.user.id },
+      {
+        spot: id,
+        user: req.user.id,
+        rating: parsedRating,
+        reviewText,
+        availableAmenities: normalizedAmenities,
+      },
+      {
+        new: true,
+        upsert: true,
+        runValidators: true,
+        setDefaultsOnInsert: true,
+      }
+    ).populate("user", "name email points badges profilePhoto");
+
+    res.status(200).json({
+      review,
+      message: "Review saved successfully",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getSpotReviews = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const spot = await Spot.findById(id);
+    if (!spot) {
+      return res.status(404).json({ message: "Spot not found" });
+    }
+
+    const reviews = await SpotReview.find({ spot: id })
+      .populate("user", "name email points badges profilePhoto")
+      .sort({ createdAt: -1 });
+
+    const totalReviews = reviews.length;
+    const averageRating =
+      totalReviews > 0
+        ? Number(
+            (
+              reviews.reduce((sum, item) => sum + item.rating, 0) / totalReviews
+            ).toFixed(1)
+          )
+        : 0;
+
+    res.json({
+      reviews,
+      summary: {
+        averageRating,
+        totalReviews,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getMySpotReview = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const review = await SpotReview.findOne({
+      spot: id,
+      user: req.user.id,
+    }).populate("user", "name email points badges profilePhoto");
+
+    res.json({ review });
+  } catch (err) {
+    next(err);
+  }
+};
 
 exports.createSpot = async (req, res, next) => {
   try {
-    const { title, type, description, address, amenities } = req.body;
+    const { title, type, description, address, amenities, lat, lng } = req.body;
 
     if (!title || !type || !address) {
       return res.status(400).json({
@@ -156,6 +376,17 @@ exports.createSpot = async (req, res, next) => {
     if (!["Public", "Private"].includes(type)) {
       return res.status(400).json({
         message: "Type must be Public or Private",
+      });
+    }
+
+    if (
+      lat === undefined ||
+      lng === undefined ||
+      Number.isNaN(Number(lat)) ||
+      Number.isNaN(Number(lng))
+    ) {
+      return res.status(400).json({
+        message: "Valid map coordinates are required",
       });
     }
 
@@ -185,10 +416,15 @@ exports.createSpot = async (req, res, next) => {
       address,
       amenities: normalizedAmenities,
       postedBy: req.user.id,
+      location: {
+        lat: Number(lat),
+        lng: Number(lng),
+      },
     });
 
     await spot.populate("postedBy", "name email points badges profilePhoto");
 
+<<<<<<< HEAD
   // Prappo: Award points for creating a spot ->
   const user = await User.findById(req.user.id);
   const pointsEarned = PointsCalculator.getPointsForAction('ADD_SPOT');
@@ -209,6 +445,27 @@ exports.createSpot = async (req, res, next) => {
     message: `You earned ${pointsEarned} points for adding a new spot!`
   });
 
+=======
+    // Prappo: Award points for creating a spot ->
+    const user = await User.findById(req.user.id);
+    const pointsEarned = PointsCalculator.getPointsForAction("ADD_SPOT");
+    user.points += pointsEarned;
+
+    // New badge check
+    const newBadges = PointsCalculator.checkNewBadges(user);
+    if (newBadges.length > 0) {
+      user.badges = [...(user.badges || []), ...newBadges];
+    }
+    await user.save();
+
+    // send notification
+    await Notification.create({
+      user: user._id,
+      type: "points_earned",
+      title: "Points Earned",
+      message: `You earned ${pointsEarned} points for adding a new spot!`,
+    });
+>>>>>>> main
 
     res.status(201).json({ spot });
   } catch (err) {
@@ -216,6 +473,75 @@ exports.createSpot = async (req, res, next) => {
   }
 
 
+};
+
+exports.getSpotDirections = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { startLat, startLng, profile = "car" } = req.query;
+
+    const spot = await Spot.findById(id);
+
+    if (!spot || !spot.location) {
+      return res.status(404).json({ message: "Spot not found" });
+    }
+
+    const parsedStartLat = Number(startLat);
+    const parsedStartLng = Number(startLng);
+
+    if (Number.isNaN(parsedStartLat) || Number.isNaN(parsedStartLng)) {
+      return res.status(400).json({ message: "Invalid start location" });
+    }
+
+    if (
+      typeof spot.location.lat !== "number" ||
+      typeof spot.location.lng !== "number"
+    ) {
+      return res.status(200).json({
+        route: null,
+        message: "This spot has no coordinates.",
+      });
+    }
+
+    const profileMap = {
+      car: "car",
+      foot: "foot",
+      bike: "motorcycle",
+    };
+
+    const selected = profileMap[profile] || "car";
+
+    const url = `https://barikoi.xyz/v2/api/route/${parsedStartLng},${parsedStartLat};${spot.location.lng},${spot.location.lat}?api_key=${process.env.BARIKOI_API_KEY}&geometries=geojson&profile=${selected}`;
+
+    console.log("Routing URL:", url);
+
+    const response = await axios.get(url);
+
+    console.log("Barikoi response:", response.data);
+
+    const route =
+      response.data?.routes?.[0] ||
+      response.data?.route ||
+      response.data;
+
+    if (!route || !route.geometry) {
+      return res.status(200).json({
+        route: null,
+        message: "No route found",
+      });
+    }
+
+    res.json({
+      route: {
+        distance: route.distance || 0,
+        duration: route.duration || 0,
+        geometry: route.geometry,
+      },
+    });
+  } catch (err) {
+    console.error("Routing error:", err.response?.data || err.message);
+    next(err);
+  }
 };
 
 exports.getSpots = async (req, res, next) => {
@@ -252,7 +578,10 @@ exports.getSpots = async (req, res, next) => {
       filter.amenities = amenity;
     }
 
+<<<<<<< HEAD
     // Get all matching spots first
+=======
+>>>>>>> main
     const matchingSpots = await Spot.find(filter)
       .populate("postedBy", "name email points badges profilePhoto")
       .sort({ createdAt: -1 })
@@ -260,7 +589,10 @@ exports.getSpots = async (req, res, next) => {
 
     const spotIds = matchingSpots.map((spot) => spot._id);
 
+<<<<<<< HEAD
     // Aggregate ratings for those spots
+=======
+>>>>>>> main
     const ratingStats = await SpotReview.aggregate([
       {
         $match: {
@@ -286,21 +618,89 @@ exports.getSpots = async (req, res, next) => {
       ])
     );
 
+<<<<<<< HEAD
     // Attach rating info to each spot
+=======
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+    const recentCheckIns = await SpotCheckIn.aggregate([
+      {
+        $match: {
+          spot: { $in: spotIds },
+          checkedInAt: { $gte: twoHoursAgo },
+        },
+      },
+      {
+        $sort: {
+          checkedInAt: -1,
+        },
+      },
+      {
+        $group: {
+          _id: "$spot",
+          recentCrowdLevels: { $push: "$crowdLevel" },
+        },
+      },
+      {
+        $project: {
+          recentCrowdLevels: { $slice: ["$recentCrowdLevels", 5] },
+        },
+      },
+    ]);
+
+    const crowdMap = new Map(
+      recentCheckIns.map((item) => {
+        const levels = item.recentCrowdLevels || [];
+        const averageCrowdLevel =
+          levels.length > 0
+            ? Number(
+                (
+                  levels.reduce((sum, level) => sum + level, 0) / levels.length
+                ).toFixed(1)
+              )
+            : null;
+
+        return [
+          item._id.toString(),
+          {
+            averageCrowdLevel,
+            crowdStatus: getCrowdStatusFromAverage(averageCrowdLevel),
+          },
+        ];
+      })
+    );
+
+>>>>>>> main
     let enrichedSpots = matchingSpots.map((spot) => {
       const ratingInfo = ratingMap.get(spot._id.toString()) || {
         averageRating: 0,
         totalReviews: 0,
       };
 
+<<<<<<< HEAD
+=======
+      const crowdInfo = crowdMap.get(spot._id.toString()) || {
+        averageCrowdLevel: null,
+        crowdStatus: "N/A",
+      };
+
+>>>>>>> main
       return {
         ...spot,
         averageRating: ratingInfo.averageRating,
         totalReviews: ratingInfo.totalReviews,
+<<<<<<< HEAD
       };
     });
 
     // Apply minimum rating filter if requested
+=======
+        averageCrowdLevel: crowdInfo.averageCrowdLevel,
+        crowdStatus: crowdInfo.crowdStatus,
+      };
+    });
+
+>>>>>>> main
     if (parsedMinRating !== null && !Number.isNaN(parsedMinRating)) {
       enrichedSpots = enrichedSpots.filter(
         (spot) => spot.averageRating >= parsedMinRating
@@ -372,6 +772,7 @@ exports.deleteSpot = async (req, res, next) => {
       return res.status(403).json({ message: "Forbidden" });
     }
 
+<<<<<<< HEAD
   // Prappo: Deduct points for deleting a spot ->
   const originalPoster = await User.findById(spot.postedBy);
   const pointsToDeduct = PointsCalculator.getPointsForAction('REMOVE_SPOT');
@@ -385,6 +786,21 @@ exports.deleteSpot = async (req, res, next) => {
     title: "Points Deducted",
     message: `You lost ${-pointsToDeduct} points for deleting a spot.`
   });
+=======
+    // Prappo: Deduct points for deleting a spot ->
+    const originalPoster = await User.findById(spot.postedBy);
+    const pointsToDeduct = PointsCalculator.getPointsForAction("REMOVE_SPOT");
+    originalPoster.points = Math.max(0, originalPoster.points + pointsToDeduct);
+    await originalPoster.save();
+
+    // send notification to original poster
+    await Notification.create({
+      user: originalPoster._id,
+      type: "points_earned",
+      title: "Points Deducted",
+      message: `You lost ${-pointsToDeduct} points for deleting a spot.`,
+    });
+>>>>>>> main
 
     await Spot.findByIdAndDelete(id);
 
@@ -392,7 +808,10 @@ exports.deleteSpot = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+<<<<<<< HEAD
 
+=======
+>>>>>>> main
 };
 
 exports.createSpotCheckIn = async (req, res, next) => {
@@ -417,7 +836,10 @@ exports.createSpotCheckIn = async (req, res, next) => {
       return res.status(404).json({ message: "Spot not found" });
     }
 
+<<<<<<< HEAD
     // Simple anti-spam: prevent repeated check-ins to the same spot within 10 minutes
+=======
+>>>>>>> main
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
     const recentCheckIn = await SpotCheckIn.findOne({
       spot: id,
@@ -427,7 +849,12 @@ exports.createSpotCheckIn = async (req, res, next) => {
 
     if (recentCheckIn) {
       return res.status(429).json({
+<<<<<<< HEAD
         message: "You already checked in recently. Please wait a bit before checking in again.",
+=======
+        message:
+          "You already checked in recently. Please wait a bit before checking in again.",
+>>>>>>> main
       });
     }
 
@@ -492,4 +919,448 @@ exports.getSpotCheckInStatus = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+<<<<<<< HEAD
+=======
+};
+
+exports.getSpotAnalytics = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const spot = await Spot.findById(id);
+    if (!spot) {
+      return res.status(404).json({ message: "Spot not found" });
+    }
+
+    const spotObjectId = new mongoose.Types.ObjectId(id);
+
+    const [summaryResult, peakHourResult, last24HoursCount, last7DaysCount] =
+      await Promise.all([
+        SpotCheckIn.aggregate([
+          {
+            $match: {
+              spot: spotObjectId,
+            },
+          },
+          {
+            $group: {
+              _id: "$spot",
+              averageCrowdLevel: { $avg: "$crowdLevel" },
+              averageNoiseLevel: { $avg: "$noiseLevel" },
+              totalCheckIns: { $sum: 1 },
+              latestCheckInAt: { $max: "$checkedInAt" },
+            },
+          },
+        ]),
+        SpotCheckIn.aggregate([
+          {
+            $match: {
+              spot: spotObjectId,
+            },
+          },
+          {
+            $project: {
+              hour: { $hour: "$checkedInAt" },
+            },
+          },
+          {
+            $group: {
+              _id: "$hour",
+              count: { $sum: 1 },
+            },
+          },
+          {
+            $sort: {
+              count: -1,
+              _id: 1,
+            },
+          },
+          {
+            $limit: 1,
+          },
+        ]),
+        SpotCheckIn.countDocuments({
+          spot: id,
+          checkedInAt: {
+            $gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+          },
+        }),
+        SpotCheckIn.countDocuments({
+          spot: id,
+          checkedInAt: {
+            $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          },
+        }),
+      ]);
+
+    const summary = summaryResult[0] || null;
+    const peakHour = peakHourResult[0] || null;
+
+    res.json({
+      analytics: {
+        averageCrowdLevel: summary
+          ? Number(summary.averageCrowdLevel.toFixed(1))
+          : 0,
+        averageCrowdLabel: summary
+          ? getNearestLabel(summary.averageCrowdLevel, CROWD_LABELS)
+          : "N/A",
+        averageNoiseLevel: summary
+          ? Number(summary.averageNoiseLevel.toFixed(1))
+          : 0,
+        averageNoiseLabel: summary
+          ? getNearestLabel(summary.averageNoiseLevel, NOISE_LABELS)
+          : "N/A",
+        totalCheckIns: summary ? summary.totalCheckIns : 0,
+        latestCheckInAt: summary ? summary.latestCheckInAt : null,
+        peakHour: peakHour
+          ? {
+              hour: peakHour._id,
+              label: `${String(peakHour._id).padStart(2, "0")}:00 - ${String(
+                (peakHour._id + 1) % 24
+              ).padStart(2, "0")}:00`,
+              totalCheckIns: peakHour.count,
+            }
+          : null,
+        recentCheckIns: {
+          last24Hours: last24HoursCount,
+          last7Days: last7DaysCount,
+        },
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getSpotAISummary = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const spot = await Spot.findById(id).select("title");
+    if (!spot) {
+      return res.status(404).json({ message: "Spot not found" });
+    }
+
+    const reviews = await SpotReview.find({ spot: id })
+      .select("rating reviewText availableAmenities createdAt")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (!reviews.length) {
+      return res.json({
+        summary: "No reviews yet for this spot.",
+        pros: [],
+        cons: [],
+      });
+    }
+
+    const validTextReviews = reviews.filter(
+      (review) =>
+        review.reviewText?.trim() ||
+        (Array.isArray(review.availableAmenities) &&
+          review.availableAmenities.length > 0)
+    );
+
+    if (!validTextReviews.length) {
+      return res.json({
+        summary:
+          "There are ratings for this spot, but not enough written feedback yet for an AI summary.",
+        pros: [],
+        cons: [],
+      });
+    }
+
+    const spotObjectId = new mongoose.Types.ObjectId(id);
+
+    const peakHourResult = await SpotCheckIn.aggregate([
+      {
+        $match: {
+          spot: spotObjectId,
+        },
+      },
+      {
+        $project: {
+          hour: { $hour: "$checkedInAt" },
+        },
+      },
+      {
+        $group: {
+          _id: "$hour",
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: {
+          count: -1,
+          _id: 1,
+        },
+      },
+      {
+        $limit: 1,
+      },
+    ]);
+
+    const peakHour = peakHourResult[0] || null;
+    const peakHourLabel = peakHour
+      ? `${String(peakHour._id).padStart(2, "0")}:00 - ${String(
+          (peakHour._id + 1) % 24
+        ).padStart(2, "0")}:00`
+      : null;
+
+    if (!process.env.GROQ_API_KEY) {
+      return res.status(500).json({
+        message: "GROQ_API_KEY is not configured",
+      });
+    }
+
+    const prompt = buildAIReviewPrompt({
+      spotTitle: spot.title,
+      reviews: validTextReviews.slice(0, 20),
+      peakHourLabel,
+    });
+
+    const groqResponse = await axios.post(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        model: "openai/gpt-oss-20b",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a careful assistant that returns only valid JSON.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.3,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        },
+      }
+    );
+
+    const rawText =
+      groqResponse.data?.choices?.[0]?.message?.content?.trim() || "";
+
+    const parsed = parseAIJson(rawText);
+
+    res.json({
+      summary:
+        typeof parsed.summary === "string" && parsed.summary.trim()
+          ? parsed.summary.trim()
+          : "No AI summary available yet.",
+      pros: Array.isArray(parsed.pros)
+        ? parsed.pros.filter(Boolean).slice(0, 5)
+        : [],
+      cons: Array.isArray(parsed.cons)
+        ? parsed.cons.filter(Boolean).slice(0, 5)
+        : [],
+    });
+  } catch (err) {
+    console.error("Groq AI summary error:", err.response?.data || err.message);
+    next(err);
+  }
+};
+
+exports.getSpotsByMyPreferences = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select("preferences");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const preferences = user.preferences || {};
+    const preferredAmenities = Array.isArray(preferences.amenities)
+      ? preferences.amenities
+      : [];
+    const preferredCrowdLevel = preferences.crowdLevel ?? null;
+    const preferredNoiseLevel = preferences.noiseLevel ?? null;
+    const preferredMinRating = preferences.minRating ?? null;
+
+    const { page = 1, limit = 9 } = req.query;
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+
+    const spots = await Spot.find({ isApproved: true })
+      .populate("postedBy", "name email points badges profilePhoto")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const spotIds = spots.map((spot) => spot._id);
+
+    const ratingStats = await SpotReview.aggregate([
+      {
+        $match: {
+          spot: { $in: spotIds },
+        },
+      },
+      {
+        $group: {
+          _id: "$spot",
+          averageRating: { $avg: "$rating" },
+          totalReviews: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const ratingMap = new Map(
+      ratingStats.map((item) => [
+        item._id.toString(),
+        {
+          averageRating: Number(item.averageRating.toFixed(1)),
+          totalReviews: item.totalReviews,
+        },
+      ])
+    );
+
+    const latestCheckIns = await SpotCheckIn.aggregate([
+      {
+        $match: {
+          spot: { $in: spotIds },
+        },
+      },
+      {
+        $sort: {
+          checkedInAt: -1,
+        },
+      },
+      {
+        $group: {
+          _id: "$spot",
+          crowdLevel: { $first: "$crowdLevel" },
+          noiseLevel: { $first: "$noiseLevel" },
+          checkedInAt: { $first: "$checkedInAt" },
+        },
+      },
+    ]);
+
+    const checkInMap = new Map(
+      latestCheckIns.map((item) => [
+        item._id.toString(),
+        {
+          crowdLevel: item.crowdLevel,
+          noiseLevel: item.noiseLevel,
+          checkedInAt: item.checkedInAt,
+        },
+      ])
+    );
+
+    let enrichedSpots = spots.map((spot) => {
+      const ratingInfo = ratingMap.get(spot._id.toString()) || {
+        averageRating: 0,
+        totalReviews: 0,
+      };
+
+      const latestCheckIn = checkInMap.get(spot._id.toString()) || {
+        crowdLevel: null,
+        noiseLevel: null,
+        checkedInAt: null,
+      };
+
+      return {
+        ...spot,
+        averageRating: ratingInfo.averageRating,
+        totalReviews: ratingInfo.totalReviews,
+        latestCrowdLevel: latestCheckIn.crowdLevel,
+        latestNoiseLevel: latestCheckIn.noiseLevel,
+        latestCheckInAt: latestCheckIn.checkedInAt,
+      };
+    });
+
+    if (preferredAmenities.length > 0) {
+      enrichedSpots = enrichedSpots.filter((spot) =>
+        preferredAmenities.every((amenity) => spot.amenities?.includes(amenity))
+      );
+    }
+
+    if (preferredCrowdLevel !== null) {
+      enrichedSpots = enrichedSpots.filter(
+        (spot) => spot.latestCrowdLevel === preferredCrowdLevel
+      );
+    }
+
+    if (preferredNoiseLevel !== null) {
+      enrichedSpots = enrichedSpots.filter(
+        (spot) => spot.latestNoiseLevel === preferredNoiseLevel
+      );
+    }
+
+    if (preferredMinRating !== null) {
+      enrichedSpots = enrichedSpots.filter(
+        (spot) => spot.averageRating >= preferredMinRating
+      );
+    }
+
+    const total = enrichedSpots.length;
+    const pages = Math.ceil(total / parsedLimit) || 1;
+    const skip = (parsedPage - 1) * parsedLimit;
+    const paginatedSpots = enrichedSpots.slice(skip, skip + parsedLimit);
+
+    res.json({
+      spots: paginatedSpots,
+      preferences: {
+        amenities: preferredAmenities,
+        crowdLevel: preferredCrowdLevel,
+        noiseLevel: preferredNoiseLevel,
+        minRating: preferredMinRating,
+      },
+      pagination: {
+        total,
+        page: parsedPage,
+        limit: parsedLimit,
+        pages,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const SpotReport = require("../models/SpotReport");
+
+exports.reportSpot = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (!reason) {
+      return res.status(400).json({ message: "Reason is required" });
+    }
+
+    const spot = await Spot.findById(id);
+    if (!spot) {
+      return res.status(404).json({ message: "Spot not found" });
+    }
+
+    const existing = await SpotReport.findOne({
+      spot: id,
+      reportedBy: req.user.id,
+    });
+
+    if (existing) {
+      return res.status(400).json({
+        message: "You have already reported this spot",
+      });
+    }
+
+    const report = await SpotReport.create({
+      spot: id,
+      reportedBy: req.user.id,
+      reason,
+    });
+
+    res.status(201).json({
+      message: "Report submitted successfully",
+      report,
+    });
+  } catch (err) {
+    next(err);
+  }
+>>>>>>> main
 };

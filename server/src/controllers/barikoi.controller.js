@@ -7,6 +7,10 @@ exports.searchLocations = async (req, res, next) => {
     console.log(`🔍 Search query: "${q}", limit: ${limit}`);
 
     if (!q || q.length < 3) {
+<<<<<<< HEAD
+=======
+      console.log('Query too short, returning empty');
+>>>>>>> main
       return res.json({ suggestions: [] });
     }
 
@@ -33,6 +37,10 @@ exports.searchLocations = async (req, res, next) => {
 
     console.log(`🏠 Local spots found: ${localSpots.length}`);
 
+<<<<<<< HEAD
+=======
+    // Convert local spots to suggestion format
+>>>>>>> main
     const localSuggestions = localSpots.map(spot => ({
       id: spot._id.toString(),
       address: spot.address,
@@ -43,6 +51,10 @@ exports.searchLocations = async (req, res, next) => {
       source: 'StudyDen'
     }));
 
+<<<<<<< HEAD
+=======
+    // Convert Barikoi results (ensure numeric lat/lng)
+>>>>>>> main
     const barikoiSuggestions = barikoiResults.map(place => ({
       id: place.id || `barikoi_${Date.now()}_${Math.random()}`,
       address: place.address,
@@ -53,6 +65,10 @@ exports.searchLocations = async (req, res, next) => {
       source: 'Barikoi'
     }));
 
+<<<<<<< HEAD
+=======
+    // Merge: local first, then Barikoi (deduplicate by coordinates)
+>>>>>>> main
     const allSuggestions = [...localSuggestions];
     const existingCoords = new Set(
       localSuggestions
@@ -68,6 +84,10 @@ exports.searchLocations = async (req, res, next) => {
           existingCoords.add(coordKey);
         }
       } else {
+<<<<<<< HEAD
+=======
+        // No coordinates – still include (maybe the frontend can handle)
+>>>>>>> main
         allSuggestions.push(bs);
       }
     }

@@ -5,6 +5,8 @@ import Container from "../components/ui/Container";
 import { leaderboardApi } from "../services/points";
 import { Link } from "react-router-dom";
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:9120";
+
 const BADGE_ICONS = {
   Explorer: "🌍",
   Critic: "📝",
@@ -49,12 +51,16 @@ export default function Leaderboard() {
 <<<<<<< Updated upstream
       const data = await leaderboardApi.getLeaderboard(page, 10);
       
+<<<<<<< HEAD
       const filteredUsers = data.users?.filter(u => u.role !== "admin") || [];
 =======
       const data = await leaderboardApi.getLeaderboard(page, USERS_PER_PAGE);
 
       const filteredUsers = (data.users || []).filter(u => u.role !== "admin");
 >>>>>>> Stashed changes
+=======
+      const filteredUsers = (data.users || []).filter(u => u.role !== "admin");
+>>>>>>> main
       setUsers(filteredUsers);
       setTotalPages(data.pagination?.pages || 1);
       setTotalUsers(data.pagination?.total || 0);
@@ -100,14 +106,19 @@ export default function Leaderboard() {
         </p>
       </div>
 
+<<<<<<< HEAD
 <<<<<<< Updated upstream
 =======
       {/* Your Ranking Card with "Show Me in the List" button */}
 >>>>>>> Stashed changes
+=======
+      {/* Your Ranking Card - FIXED: always show rank number, profile photo separate */}
+>>>>>>> main
       {user && userRank && user.role !== "admin" && (
         <Card className="mb-6 p-4 bg-blue-50/50 border border-blue-100">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
+<<<<<<< HEAD
 <<<<<<< Updated upstream
               <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-sm overflow-hidden">
                 {user.profilePhoto ? (
@@ -131,12 +142,28 @@ export default function Leaderboard() {
                 ) : (
                   <span>#{userRank.rank}</span>
                 )}
+=======
+              {/* Circle shows RANK NUMBER only */}
+              <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                #{userRank.rank}
+>>>>>>> main
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Your Ranking</p>
-                <p className="text-xl font-semibold text-gray-900">
-                  {user.name} • {userRank.points} points
-                </p>
+              <div className="flex items-center gap-3">
+                {/* Profile photo shown separately if exists */}
+                {userRank.profilePhoto && (
+                  <img 
+                    src={`${API_BASE}${userRank.profilePhoto}`}
+                    alt={userRank.name}
+                    className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                    onError={(e) => { e.target.style.display = "none"; }}
+                  />
+                )}
+                <div>
+                  <p className="text-sm text-gray-600">Your Ranking</p>
+                  <p className="text-xl font-semibold text-gray-900">
+                    {userRank.name} • {userRank.points} points
+                  </p>
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -192,13 +219,25 @@ export default function Leaderboard() {
                         {userItem.profilePhoto ? (
 <<<<<<< Updated upstream
                           <img 
+<<<<<<< HEAD
                             src={`http://localhost:5000${userItem.profilePhoto}`} 
 =======
                           <img
                             src={`${API_BASE}${userItem.profilePhoto}`}
 >>>>>>> Stashed changes
+=======
+                            src={`${API_BASE}${userItem.profilePhoto}`}
+>>>>>>> main
                             alt={userItem.name}
                             className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = "none";
+                              const parent = e.target.parentElement;
+                              const fallback = document.createElement("div");
+                              fallback.className = "w-full h-full flex items-center justify-center text-white font-medium text-sm";
+                              fallback.textContent = userItem.name.charAt(0).toUpperCase();
+                              parent.appendChild(fallback);
+                            }}
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-white font-medium text-sm">

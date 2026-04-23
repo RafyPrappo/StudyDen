@@ -12,8 +12,13 @@ import {
   LogOut,
   LogIn,
   UserPlus,
+<<<<<<< HEAD
   Plus,
   Shield,
+=======
+  Shield,
+  Menu,
+>>>>>>> main
 } from "lucide-react";
 
 const linkBase =
@@ -24,13 +29,16 @@ export default function Navbar() {
   const { user, logout, isAdmin } = useAuth();
   const nav = useNavigate();
   const location = useLocation();
-  const [loggingOut, setLoggingOut] = useState(false);
-  const [showCreateButton, setShowCreateButton] = useState(false);
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
+<<<<<<< HEAD
   useEffect(() => {
     setShowCreateButton(location.pathname === "/events");
   }, [location.pathname]);
+=======
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+>>>>>>> main
 
   useEffect(() => {
     if (user) {
@@ -39,6 +47,10 @@ export default function Navbar() {
       return () => clearInterval(interval);
     }
   }, [user]);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
 
   const fetchUnreadCount = async () => {
     try {
@@ -50,7 +62,6 @@ export default function Navbar() {
   };
 
   const gatedTo = (path) => (user ? path : "/login");
-  const gatedState = (path) => (user ? undefined : { from: path });
 
   async function handleLogout() {
     if (loggingOut) return;
@@ -64,15 +75,16 @@ export default function Navbar() {
   }
 
   return (
-    <header className="border-b border-gray-200 bg-white/90 backdrop-blur-sm sticky top-0 z-50">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 py-3">
+    <header className="border-b border-gray-200 bg-white/90 backdrop-blur-sm sticky top-0 z-50 overflow-x-hidden">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 py-3 gap-2">
         <NavLink
           to="/"
-          className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-blue-50 transition-colors"
+          className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-blue-50 transition-colors min-w-0"
         >
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center font-bold text-white">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center font-bold text-white flex-shrink-0">
             SD
           </div>
+<<<<<<< HEAD
           <span className="text-lg font-semibold text-gray-900">StudyDen</span>
         </NavLink>
 
@@ -82,39 +94,53 @@ export default function Navbar() {
               showCreateButton ? "mr-8" : "mr-0"
             }`}
           >
+=======
+          <span className="text-lg font-semibold text-gray-900 truncate">
+            StudyDen
+          </span>
+        </NavLink>
+
+        <button
+          className="lg:hidden p-2 rounded-lg hover:bg-gray-100 flex-shrink-0"
+          onClick={() => setMenuOpen((prev) => !prev)}
+          aria-label="Open menu"
+        >
+          <Menu size={22} />
+        </button>
+
+        <nav className="hidden lg:flex items-center">
+          <div className="flex items-center gap-1">
+>>>>>>> main
             <NavLink
               to="/"
               className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}
             >
               <Home size={18} />
-              <span className="hidden sm:inline">Home</span>
+              <span className="hidden xl:inline">Home</span>
             </NavLink>
 
             <NavLink
               to={gatedTo("/spots")}
-              state={gatedState("/spots")}
               className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}
             >
               <MapPin size={18} />
-              <span className="hidden sm:inline">Spots</span>
+              <span className="hidden xl:inline">Spots</span>
             </NavLink>
 
             <NavLink
               to={gatedTo("/events")}
-              state={gatedState("/events")}
               className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}
             >
               <Calendar size={18} />
-              <span className="hidden sm:inline">Events</span>
+              <span className="hidden xl:inline">Events</span>
             </NavLink>
 
             <NavLink
               to={gatedTo("/leaderboard")}
-              state={gatedState("/leaderboard")}
               className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}
             >
               <Trophy size={18} />
-              <span className="hidden sm:inline">Leaderboard</span>
+              <span className="hidden xl:inline">Leaderboard</span>
             </NavLink>
 
             {user && (
@@ -125,7 +151,7 @@ export default function Navbar() {
                 }
               >
                 <User size={18} />
-                <span className="hidden sm:inline">Profile</span>
+                <span className="hidden xl:inline">Profile</span>
                 {unreadNotifications > 0 && (
                   <span className="absolute -top-1 -right-1 flex h-4 w-4">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -143,7 +169,11 @@ export default function Navbar() {
                 className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}
               >
                 <Shield size={18} />
+<<<<<<< HEAD
                 <span className="hidden sm:inline">Admin</span>
+=======
+                <span className="hidden xl:inline">Admin</span>
+>>>>>>> main
               </NavLink>
             )}
           </div>
@@ -157,18 +187,20 @@ export default function Navbar() {
                 className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}
               >
                 <LogIn size={18} />
-                <span className="hidden sm:inline">Login</span>
+                <span className="hidden xl:inline">Login</span>
               </NavLink>
+
               <NavLink
                 to="/register"
                 className={({ isActive }) => `${linkBase} ${isActive ? active : ""}`}
               >
                 <UserPlus size={18} />
-                <span className="hidden sm:inline">Register</span>
+                <span className="hidden xl:inline">Register</span>
               </NavLink>
             </div>
           ) : (
             <div className="flex items-center gap-2">
+<<<<<<< HEAD
               <div
                 className={`transition-all duration-500 ease-in-out ${
                   showCreateButton
@@ -191,6 +223,8 @@ export default function Navbar() {
                 </Button>
               </div>
 
+=======
+>>>>>>> main
               <Button
                 variant="ghost"
                 onClick={handleLogout}
@@ -198,7 +232,7 @@ export default function Navbar() {
                 className="flex items-center gap-2"
               >
                 <LogOut size={16} />
-                <span className="hidden sm:inline">
+                <span className="hidden xl:inline">
                   {loggingOut ? "Logging out..." : "Logout"}
                 </span>
               </Button>
@@ -207,6 +241,7 @@ export default function Navbar() {
         </nav>
       </div>
 
+<<<<<<< HEAD
       <style>{`
         @keyframes fallFromSky {
           0% {
@@ -230,6 +265,102 @@ export default function Navbar() {
           animation: fallFromSky 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
         }
       `}</style>
+=======
+      <div
+        className={`lg:hidden overflow-hidden bg-white transition-all duration-300 ease-out ${
+          menuOpen
+            ? "max-h-[500px] opacity-100 border-t border-gray-200"
+            : "max-h-0 opacity-0"
+        }`}
+      >
+        <div
+          className={`px-4 py-4 space-y-2 transform transition-all duration-300 ease-out ${
+            menuOpen ? "translate-y-0 opacity-100" : "-translate-y-3 opacity-0"
+          }`}
+        >
+          <NavLink to="/" className={linkBase} onClick={() => setMenuOpen(false)}>
+            <Home size={18} /> Home
+          </NavLink>
+
+          <NavLink
+            to={gatedTo("/spots")}
+            className={linkBase}
+            onClick={() => setMenuOpen(false)}
+          >
+            <MapPin size={18} /> Spots
+          </NavLink>
+
+          <NavLink
+            to={gatedTo("/events")}
+            className={linkBase}
+            onClick={() => setMenuOpen(false)}
+          >
+            <Calendar size={18} /> Events
+          </NavLink>
+
+          <NavLink
+            to={gatedTo("/leaderboard")}
+            className={linkBase}
+            onClick={() => setMenuOpen(false)}
+          >
+            <Trophy size={18} /> Leaderboard
+          </NavLink>
+
+          {user && (
+            <NavLink
+              to="/profile"
+              className={linkBase}
+              onClick={() => setMenuOpen(false)}
+            >
+              <User size={18} /> Profile
+            </NavLink>
+          )}
+
+          {user && isAdmin && (
+            <NavLink
+              to="/admin"
+              className={linkBase}
+              onClick={() => setMenuOpen(false)}
+            >
+              <Shield size={18} /> Admin
+            </NavLink>
+          )}
+
+          <div className="border-t pt-3 mt-3" />
+
+          {!user ? (
+            <>
+              <NavLink
+                to="/login"
+                className={linkBase}
+                onClick={() => setMenuOpen(false)}
+              >
+                <LogIn size={18} /> Login
+              </NavLink>
+
+              <NavLink
+                to="/register"
+                className={linkBase}
+                onClick={() => setMenuOpen(false)}
+              >
+                <UserPlus size={18} /> Register
+              </NavLink>
+            </>
+          ) : (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setMenuOpen(false);
+                  handleLogout();
+                }}
+              className="w-full justify-start bg-red-50 hover:bg-red-100 text-red-600"            
+              >
+              <LogOut size={16} /> Logout
+            </Button>
+          )}
+        </div>
+      </div>
+>>>>>>> main
     </header>
   );
 }

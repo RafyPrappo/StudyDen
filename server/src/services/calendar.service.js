@@ -17,7 +17,22 @@ async function loadSavedCredentialsIfExist(userId) {
         userTokens.client_secret
       );
       auth.setCredentials({ refresh_token: userTokens.refresh_token });
+<<<<<<< HEAD
       return auth;
+=======
+      // Test if credentials are still valid by attempting to refresh token
+      try {
+        await auth.getAccessToken();
+        return auth;
+      } catch (err) {
+        console.error(`Token refresh failed for user ${userId}:`, err.message);
+        // If invalid_grant, remove the invalid token
+        if (err.message.includes('invalid_grant')) {
+          await removeUserCredentials(userId);
+        }
+        return null;
+      }
+>>>>>>> main
     }
     return null;
   } catch (err) {
@@ -25,6 +40,23 @@ async function loadSavedCredentialsIfExist(userId) {
   }
 }
 
+<<<<<<< HEAD
+=======
+async function removeUserCredentials(userId) {
+  try {
+    const content = await fs.readFile(TOKEN_PATH);
+    const allTokens = JSON.parse(content);
+    if (allTokens[userId]) {
+      delete allTokens[userId];
+      await fs.writeFile(TOKEN_PATH, JSON.stringify(allTokens, null, 2));
+      console.log(`Removed invalid credentials for user ${userId}`);
+    }
+  } catch (err) {
+    console.error('Error removing user credentials:', err);
+  }
+}
+
+>>>>>>> main
 async function saveCredentials(userId, client, tokens) {
   const keysContent = await fs.readFile(CREDENTIALS_PATH);
   const keys = JSON.parse(keysContent);
@@ -43,6 +75,10 @@ async function saveCredentials(userId, client, tokens) {
   };
   
   await fs.writeFile(TOKEN_PATH, JSON.stringify(allTokens, null, 2));
+<<<<<<< HEAD
+=======
+  console.log(`Saved credentials for user ${userId}`);
+>>>>>>> main
 }
 
 async function authorize(userId) {
@@ -97,6 +133,14 @@ async function createCalendarEvent(userId, eventData) {
     };
   } catch (err) {
     console.error('Create calendar event error:', err.message);
+<<<<<<< HEAD
+=======
+    // If invalid_grant, remove credentials and return auth required
+    if (err.message.includes('invalid_grant')) {
+      await removeUserCredentials(userId);
+      return { success: false, error: 'User not authenticated with Google Calendar' };
+    }
+>>>>>>> main
     return { success: false, error: err.message };
   }
 }
@@ -116,8 +160,29 @@ async function deleteCalendarEvent(userId, calendarEventId) {
     return { success: true };
   } catch (err) {
     console.error('Delete calendar event error:', err.message);
+<<<<<<< HEAD
+=======
+    if (err.message.includes('invalid_grant')) {
+      await removeUserCredentials(userId);
+    }
+>>>>>>> main
     return { success: false, error: err.message };
   }
 }
 
+<<<<<<< HEAD
 module.exports = { createCalendarEvent, saveCredentials, authorize, deleteCalendarEvent };
+=======
+async function hasCredentials(userId) {
+  const auth = await authorize(userId);
+  return !!auth;
+}
+
+module.exports = { 
+  createCalendarEvent, 
+  saveCredentials, 
+  authorize, 
+  deleteCalendarEvent,
+  hasCredentials
+};
+>>>>>>> main

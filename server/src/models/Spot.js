@@ -35,6 +35,10 @@ const spotSchema = new mongoose.Schema(
       trim: true,
       maxlength: 200,
     },
+    location: {
+      lat: { type: Number },
+      lng: { type: Number },
+    },
     amenities: [
       {
         type: String,
@@ -49,6 +53,16 @@ const spotSchema = new mongoose.Schema(
     isApproved: {
       type: Boolean,
       default: true,
+    },
+    // Prappo
+    verificationStatus: {
+      type: String,
+      enum: ["Verified", "Unverified", "Commercial"],
+      default: "Unverified",
+    },
+    verifiedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
   },
   { timestamps: true }

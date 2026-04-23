@@ -10,11 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-<<<<<<< Updated upstream
-=======
     "framer-motion": "^12.38.0",
     "leaflet": "^1.9.4",
->>>>>>> Stashed changes
     "lucide-react": "^0.577.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

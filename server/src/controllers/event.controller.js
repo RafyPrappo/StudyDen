@@ -3,9 +3,7 @@ const Endorsement = require("../models/Endorsement");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
 const { PointsCalculator } = require("../utils/pointsCalculator");
-const axios = require("axios");
-
-let lastRequestTime = 0;
+const { geocodeAddress } = require("../services/barikoi.service");
 
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371e3;
@@ -22,6 +20,7 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+<<<<<<< HEAD
 async function geocodeAddress(address) {
   try {
     console.log(`Geocoding address: ${address}`);
@@ -66,12 +65,23 @@ async function rateLimitedGeocode(address) {
   return geocodeAddress(address);
 }
 =======
+=======
+// Helper: combine event date and time into a single Date object
+function getEventDateTime(event) {
+  const [hours, minutes] = event.time.split(':').map(Number);
+  const dt = new Date(event.date);
+  dt.setHours(hours, minutes, 0, 0);
+  return dt;
+}
+
+>>>>>>> main
 // ========== TEST VALUES – CHANGE BACK TO 30 FOR PRODUCTION ==========
 const REQUIRED_HOST_MINUTES = 1;        // 1 minute for testing
 const REQUIRED_ATTENDEE_MINUTES = 1;    // 1 minute for testing
 // ====================================================================
 
 // Time window constants (in minutes)
+<<<<<<< HEAD
 const CHECK_IN_WINDOW_BEFORE = 30;
 const CHECK_IN_WINDOW_AFTER = 180;
 
@@ -103,6 +113,10 @@ async function cleanupOldEvents() {
 cleanupOldEvents();
 // ---------------------------------------------------------------------------
 >>>>>>> Stashed changes
+=======
+const CHECK_IN_WINDOW_BEFORE = 30;      // can check in up to 30 min before start
+const CHECK_IN_WINDOW_AFTER = 180;      // can check in up to 3 hours after start
+>>>>>>> main
 
 exports.createEvent = async (req, res, next) => {
   try {
@@ -111,11 +125,23 @@ exports.createEvent = async (req, res, next) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
+<<<<<<< HEAD
     const geocodeResult = await rateLimitedGeocode(location);
     const event = await Event.create({
       title, topic, description,
       date: new Date(date), time, location,
       coordinates: { lat: geocodeResult.lat, lng: geocodeResult.lng },
+=======
+    const geocodeResult = await geocodeAddress(location);
+
+    const event = await Event.create({
+      title, topic, description,
+      date: new Date(date), time, location,
+      coordinates: {
+        lat: geocodeResult.lat,
+        lng: geocodeResult.lng
+      },
+>>>>>>> main
       formattedAddress: geocodeResult.formattedAddress,
       placeId: geocodeResult.placeId,
       maxAttendees,
@@ -134,6 +160,7 @@ exports.getEvents = async (req, res, next) => {
   try {
     const { topic, status = "upcoming,ongoing", search, page = 1, limit = 10 } = req.query;
     const skip = (page - 1) * limit;
+<<<<<<< HEAD
 <<<<<<< Updated upstream
     const filter = { status };
 =======
@@ -148,6 +175,15 @@ exports.getEvents = async (req, res, next) => {
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     filter.date = { $gte: oneDayAgo };
+=======
+    
+    // Allow multiple statuses (comma-separated)
+    const statusArray = status.split(',').map(s => s.trim());
+    const filter = { status: { $in: statusArray } };
+    
+    if (topic && topic !== "All") filter.topic = topic;
+    if (search) filter.title = { $regex: search, $options: "i" };
+>>>>>>> main
 
     const events = await Event.find(filter)
       .populate("host", "name email points badges profilePhoto _id")
@@ -156,7 +192,6 @@ exports.getEvents = async (req, res, next) => {
       .limit(parseInt(limit));
 
     const total = await Event.countDocuments(filter);
-
     if (req.user) {
       events.forEach(event => {
         event._doc.isAttending = event.isUserAttending(req.user.id);
@@ -164,7 +199,6 @@ exports.getEvents = async (req, res, next) => {
         if (event.status === "cancelled") event._doc.isCancelled = true;
       });
     }
-
     res.json({
       events,
       pagination: {
@@ -185,6 +219,7 @@ exports.getEvent = async (req, res, next) => {
     const event = await Event.findById(id)
       .populate("host", "name email points badges profilePhoto _id")
       .populate("attendees", "name email points badges profilePhoto");
+<<<<<<< HEAD
     if (!event) return res.status(404).json({ message: "Event not found" });
     if (req.user) {
       const isAttending = event.attendees.some(attendee => attendee._id.toString() === req.user.id);
@@ -192,6 +227,37 @@ exports.getEvent = async (req, res, next) => {
       event._doc.isFavorited = event.isUserFavorited(req.user.id);
       event._doc.hasSynced = event.userCalendarEvents && event.userCalendarEvents.has(req.user.id);
     }
+=======
+      
+    if (!event) return res.status(404).json({ message: "Event not found" });
+    
+    if (req.user) {
+      const rawEvent = await Event.findById(id).select('attendees favorites userCalendarEvents attendeesPresent attendeesCompleted');
+      if (rawEvent) {
+        event._doc.isAttending = rawEvent.attendees.some(
+          attId => attId.toString() === req.user.id
+        );
+        event._doc.isFavorited = rawEvent.favorites.some(
+          favId => favId.toString() === req.user.id
+        );
+        event._doc.hasSynced = rawEvent.userCalendarEvents && 
+                               rawEvent.userCalendarEvents.has(req.user.id);
+        event._doc.attendeesPresent = rawEvent.attendeesPresent.map(id => id.toString());
+        event._doc.attendeesCompleted = rawEvent.attendeesCompleted.map(id => id.toString());
+      } else {
+        event._doc.isAttending = false;
+        event._doc.isFavorited = false;
+        event._doc.hasSynced = false;
+        event._doc.attendeesPresent = [];
+        event._doc.attendeesCompleted = [];
+      }
+    } else {
+      event._doc.hasSynced = false;
+      event._doc.attendeesPresent = [];
+      event._doc.attendeesCompleted = [];
+    }
+    
+>>>>>>> main
     res.json({ event });
   } catch (err) {
     next(err);
@@ -208,16 +274,23 @@ exports.joinEvent = async (req, res, next) => {
       return res.status(400).json({ message: "Host cannot join their own event" });
     }
 
-    const eventDate = new Date(event.date);
-    if (eventDate < new Date()) {
+    const eventDateTime = getEventDateTime(event);
+    const now = new Date();
+    if (eventDateTime < now) {
       return res.status(400).json({ message: "Cannot join past events" });
     }
+<<<<<<< HEAD
 <<<<<<< Updated upstream
     if (event.status !== "upcoming") {
 =======
 
     if (event.status !== "upcoming" && event.status !== "ongoing") {
 >>>>>>> Stashed changes
+=======
+
+    // Allow joining if status is upcoming OR ongoing
+    if (event.status !== "upcoming" && event.status !== "ongoing") {
+>>>>>>> main
       return res.status(400).json({ message: "Cannot join completed or cancelled event" });
     }
     if (event.isFull) {
@@ -248,7 +321,11 @@ exports.joinEvent = async (req, res, next) => {
     const updatedEvent = await Event.findById(id).populate("host", "name email points badges profilePhoto _id");
     updatedEvent._doc.isAttending = true;
     res.json({
+<<<<<<< HEAD
       message: "Successfully joined event. Points will be awarded after attending for 30 minutes.",
+=======
+      message: `Successfully joined event. Points will be awarded after attending for ${REQUIRED_ATTENDEE_MINUTES} minute(s) after the event starts.`,
+>>>>>>> main
       event: { ...updatedEvent.toObject(), isAttending: true, spotsFilled: updatedEvent.attendees.length }
     });
   } catch (err) {
@@ -262,8 +339,9 @@ exports.leaveEvent = async (req, res, next) => {
     const event = await Event.findById(id);
     if (!event) return res.status(404).json({ message: "Event not found" });
 
-    const eventDate = new Date(event.date);
-    if (eventDate < new Date()) {
+    const eventDateTime = getEventDateTime(event);
+    const now = new Date();
+    if (eventDateTime < now) {
       return res.status(400).json({ message: "Cannot leave past events" });
     }
     if (event.status !== "upcoming") {
@@ -273,6 +351,7 @@ exports.leaveEvent = async (req, res, next) => {
       return res.status(400).json({ message: "Not attending this event" });
     }
 
+<<<<<<< HEAD
     // Remove from Google Calendar if synced
     const { deleteCalendarEvent } = require("../services/calendar.service");
     if (event.userCalendarEvents && event.userCalendarEvents.has(req.user.id)) {
@@ -280,6 +359,17 @@ exports.leaveEvent = async (req, res, next) => {
       await deleteCalendarEvent(req.user.id, calendarEventId);
       event.userCalendarEvents.delete(req.user.id);
       await event.save();
+=======
+    try {
+      const { deleteCalendarEvent } = require("../services/calendar.service");
+      if (event.userCalendarEvents && event.userCalendarEvents.has(req.user.id)) {
+        const calendarEventId = event.userCalendarEvents.get(req.user.id);
+        await deleteCalendarEvent(req.user.id, calendarEventId);
+        event.userCalendarEvents.delete(req.user.id);
+      }
+    } catch (err) {
+      console.error("Failed to delete calendar event during leave:", err.message);
+>>>>>>> main
     }
 
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -298,8 +388,12 @@ exports.leaveEvent = async (req, res, next) => {
     user.joinedEvents = user.joinedEvents.filter(eId => eId.toString() !== event._id.toString());
     await user.save();
 
+<<<<<<< HEAD
     const now = new Date();
     const hoursUntilEvent = (eventDate - now) / (1000 * 60 * 60);
+=======
+    const hoursUntilEvent = (eventDateTime - now) / (1000 * 60 * 60);
+>>>>>>> main
     if (hoursUntilEvent < 2) {
       user.noShowCount = (user.noShowCount || 0) + 1;
       if (user.noShowCount >= 5) {
@@ -364,6 +458,7 @@ exports.deleteEvent = async (req, res, next) => {
       return res.json({ message: "Event already cancelled" });
     }
 
+<<<<<<< HEAD
     // Remove from Google Calendar for all users who synced
     const { deleteCalendarEvent } = require("../services/calendar.service");
     if (event.userCalendarEvents && event.userCalendarEvents.size > 0) {
@@ -380,6 +475,26 @@ exports.deleteEvent = async (req, res, next) => {
     const now = new Date();
     const eventDate = new Date(event.date);
     const hoursUntilEvent = (eventDate - now) / (1000 * 60 * 60);
+=======
+    try {
+      const { deleteCalendarEvent } = require("../services/calendar.service");
+      if (event.userCalendarEvents && event.userCalendarEvents.size > 0) {
+        for (const [userId, calendarEventId] of event.userCalendarEvents.entries()) {
+          try {
+            await deleteCalendarEvent(userId, calendarEventId);
+          } catch (err) {
+            console.error(`Failed to delete calendar event for user ${userId}:`, err.message);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Calendar deletion error during event cancellation:", err);
+    }
+
+    const now = new Date();
+    const eventDateTime = getEventDateTime(event);
+    const hoursUntilEvent = (eventDateTime - now) / (1000 * 60 * 60);
+>>>>>>> main
     if (hoursUntilEvent < 48 && hoursUntilEvent >= 24) {
       const host = await User.findById(event.host);
       host.points = Math.max(0, host.points - 100);
@@ -434,9 +549,22 @@ exports.completeEvent = async (req, res, next) => {
       return res.status(400).json({ message: "Host must be present at the event location" });
     }
     const now = new Date();
+<<<<<<< HEAD
     const hostDuration = (now - event.startedAt) / (1000 * 60);
     if (hostDuration < 30) {
       return res.status(400).json({ message: `Host must be at the event location for at least 30 minutes. Current duration: ${Math.floor(hostDuration)} minutes` });
+=======
+    const eventDateTime = getEventDateTime(event);
+    if (now < eventDateTime) {
+      return res.status(400).json({ message: "Cannot complete event before it starts" });
+    }
+
+    const hostDuration = (now - event.startedAt) / (1000 * 60);
+    if (hostDuration < REQUIRED_HOST_MINUTES) {
+      return res.status(400).json({ 
+        message: `Host must be at the event location for at least ${REQUIRED_HOST_MINUTES} minute(s). Current duration: ${Math.floor(hostDuration)} minutes` 
+      });
+>>>>>>> main
     }
     event.status = "completed";
     event.endedAt = now;
@@ -473,6 +601,7 @@ exports.trackLocation = async (req, res, next) => {
     const { lat, lng } = req.body;
     const event = await Event.findById(id);
     if (!event) return res.status(404).json({ message: "Event not found" });
+<<<<<<< HEAD
     const now = new Date();
     const eventTime = new Date(event.date);
     const [hours, minutes] = event.time.split(':').map(Number);
@@ -481,6 +610,25 @@ exports.trackLocation = async (req, res, next) => {
     if (minutesDiff > 180) {
       return res.status(400).json({ message: "Not within tracking window" });
     }
+=======
+
+    const now = new Date();
+    const eventDateTime = getEventDateTime(event);
+    const minutesDiff = (now - eventDateTime) / (1000 * 60);
+
+    // Check if within allowed tracking window
+    if (minutesDiff < -CHECK_IN_WINDOW_BEFORE) {
+      return res.status(400).json({ 
+        message: `Cannot check in more than ${CHECK_IN_WINDOW_BEFORE} minutes before event start.` 
+      });
+    }
+    if (minutesDiff > CHECK_IN_WINDOW_AFTER) {
+      return res.status(400).json({ 
+        message: `Cannot check in more than ${CHECK_IN_WINDOW_AFTER / 60} hours after event start.` 
+      });
+    }
+
+>>>>>>> main
     const distance = calculateDistance(lat, lng, event.coordinates.lat, event.coordinates.lng);
     const isWithinRadius = distance <= (event.radius || 100);
     if (req.user.id === event.host.toString()) {
@@ -495,10 +643,23 @@ exports.trackLocation = async (req, res, next) => {
         event.hostPresent = false;
       }
       await event.save();
+<<<<<<< HEAD
       return res.json({ role: "host", withinRadius: isWithinRadius, hostPresent: event.hostPresent, startedAt: event.startedAt, status: event.status, distance });
+=======
+      return res.json({ 
+        role: "host", 
+        withinRadius: isWithinRadius, 
+        hostPresent: event.hostPresent, 
+        startedAt: event.startedAt, 
+        status: event.status, 
+        distance,
+        requiredMinutes: REQUIRED_HOST_MINUTES
+      });
+>>>>>>> main
     }
     if (event.attendees.includes(req.user.id)) {
       const timer = event.getTimerForUser(req.user.id);
+<<<<<<< HEAD
       if (event.status === "ongoing" && event.hostPresent) {
         if (isWithinRadius) {
           if (!timer.joinedAt) timer.joinedAt = now;
@@ -507,9 +668,20 @@ exports.trackLocation = async (req, res, next) => {
           const continuousMinutes = (now - timer.joinedAt) / (1000 * 60);
           timer.totalMinutes = continuousMinutes;
           if (continuousMinutes >= 1 && !timer.present) {
+=======
+      
+      // Only allow time accrual after event has started
+      const canAccrueTime = now >= eventDateTime;
+      
+      if (event.status === "ongoing" && event.hostPresent) {
+        if (isWithinRadius) {
+          // Mark as present immediately (so they appear in attendeesPresent)
+          if (!timer.present) {
+>>>>>>> main
             timer.present = true;
             if (!event.attendeesPresent.includes(req.user.id)) event.attendeesPresent.push(req.user.id);
           }
+<<<<<<< HEAD
           if (continuousMinutes >= 30 && !timer.completed) {
             timer.completed = true;
             timer.completedAt = now;
@@ -554,19 +726,92 @@ exports.trackLocation = async (req, res, next) => {
                       title: "New Badge Earned!",
                       message: `Congratulations! You've earned the ${badge} badge.`
                     });
+=======
+          
+          // Only start the timer if event has actually started
+          if (canAccrueTime) {
+            if (!timer.joinedAt) {
+              timer.joinedAt = now;
+            }
+            timer.lastSeenAt = now;
+            timer.hostWasPresent = true;
+            
+            const continuousMinutes = (now - timer.joinedAt) / (1000 * 60);
+            timer.totalMinutes = continuousMinutes;
+            
+            if (continuousMinutes >= REQUIRED_ATTENDEE_MINUTES && !timer.completed) {
+              timer.completed = true;
+              timer.completedAt = now;
+              if (!event.attendeesCompleted.includes(req.user.id)) {
+                event.attendeesCompleted.push(req.user.id);
+                const user = await User.findById(req.user.id);
+                const alreadyCompleted = user.completedEvents?.includes(event._id);
+                if (!alreadyCompleted) {
+                  let pointsEarned = 0;
+                  if (timer.hostWasPresent) {
+                    pointsEarned = 10;
+                    user.points += 10;
+                  } else {
+                    pointsEarned = 20;
+                    user.points += 20;
+                    user.dedicatedCount = (user.dedicatedCount || 0) + 1;
+                    if (user.dedicatedCount >= 3 && !user.badges.includes("Dedicated")) {
+                      user.badges.push("Dedicated");
+                      await Notification.create({
+                        user: user._id,
+                        type: "badge_earned",
+                        title: "New Badge Earned!",
+                        message: "Congratulations! You've earned the Dedicated badge for staying when hosts ditched."
+                      });
+                    }
                   }
+                  user.completedEvents = [...(user.completedEvents || []), event._id];
+                  await Notification.create({
+                    user: user._id,
+                    type: "points_earned",
+                    title: "Points Earned!",
+                    message: `You earned ${pointsEarned} points for attending "${event.title}".`,
+                    event: event._id
+                  });
+                  const newBadges = PointsCalculator.checkNewBadges(user);
+                  if (newBadges.length > 0) {
+                    user.badges = [...(user.badges || []), ...newBadges];
+                    for (const badge of newBadges) {
+                      await Notification.create({
+                        user: user._id,
+                        type: "badge_earned",
+                        title: "New Badge Earned!",
+                        message: `Congratulations! You've earned the ${badge} badge.`
+                      });
+                    }
+>>>>>>> main
+                  }
+                  await user.save();
                 }
+<<<<<<< HEAD
                 await user.save();
+=======
+>>>>>>> main
               }
             }
+          } else {
+            // Event hasn't started yet; ensure timer is not running
+            timer.joinedAt = null;
           }
         } else {
           timer.joinedAt = null;
           timer.lastSeenAt = null;
         }
       }
+<<<<<<< HEAD
       event.attendeeTimers.set(req.user.id.toString(), timer);
       await event.save();
+=======
+      
+      event.attendeeTimers.set(req.user.id.toString(), timer);
+      await event.save();
+      
+>>>>>>> main
       return res.json({
         role: "attendee",
         withinRadius: isWithinRadius,
@@ -577,7 +822,9 @@ exports.trackLocation = async (req, res, next) => {
           minutes: timer.joinedAt ? Math.floor((now - timer.joinedAt) / (1000 * 60)) : 0,
           present: timer.present,
           completed: timer.completed,
-          totalMinutes: Math.floor(timer.totalMinutes || 0)
+          totalMinutes: Math.floor(timer.totalMinutes || 0),
+          requiredMinutes: REQUIRED_ATTENDEE_MINUTES,
+          canAccrueTime
         },
         distance
       });
@@ -602,7 +849,8 @@ exports.getEventStatus = async (req, res, next) => {
       timers[req.user.id] = {
         minutes: Math.floor(timer.totalMinutes || 0),
         present: timer.present,
-        completed: timer.completed
+        completed: timer.completed,
+        requiredMinutes: REQUIRED_ATTENDEE_MINUTES
       };
     }
     res.json({
@@ -613,7 +861,9 @@ exports.getEventStatus = async (req, res, next) => {
       attendeesCompleted: event.attendeesCompleted.length,
       totalAttendees: event.attendees.length,
       presentList: event.attendeesPresent,
-      timers
+      timers,
+      requiredHostMinutes: REQUIRED_HOST_MINUTES,
+      requiredAttendeeMinutes: REQUIRED_ATTENDEE_MINUTES
     });
   } catch (err) {
     next(err);
@@ -654,6 +904,7 @@ exports.submitEndorsement = async (req, res, next) => {
     if (event.status !== "completed") {
       return res.status(400).json({ message: "Event not completed yet" });
     }
+<<<<<<< HEAD
     if (!event.attendeesPresent.includes(req.user.id)) {
       return res.status(400).json({ message: "You were not marked as present" });
     }
@@ -663,11 +914,34 @@ exports.submitEndorsement = async (req, res, next) => {
     }
     endorsement.endorsed = endorsed;
     endorsement.present = true;
+=======
+    // Only attendees who completed the required time can endorse
+    if (!event.attendeesCompleted.includes(req.user.id)) {
+      return res.status(400).json({ message: "You must complete the required attendance time to endorse" });
+    }
+
+    const existingEndorsement = await Endorsement.findOne({ event: event._id, attendee: req.user.id });
+    if (existingEndorsement) {
+      return res.status(400).json({ message: "You have already endorsed this event" });
+    }
+
+    const endorsement = new Endorsement({
+      event: event._id,
+      attendee: req.user.id,
+      host: event.host,
+      endorsed,
+      present: true
+    });
+>>>>>>> main
     await endorsement.save();
     const totalPresent = event.attendeesPresent.length;
     const totalEndorsements = await Endorsement.countDocuments({ event: event._id, endorsed: true });
     const endorsementPercentage = totalPresent > 0 ? (totalEndorsements / totalPresent) * 100 : 0;
     event.endorsement = Math.round(endorsementPercentage);
+<<<<<<< HEAD
+=======
+
+>>>>>>> main
     if (endorsementPercentage >= 60) {
       event.isSuccessful = true;
       const host = await User.findById(event.host);
@@ -692,6 +966,21 @@ exports.submitEndorsement = async (req, res, next) => {
           });
         }
       }
+<<<<<<< HEAD
+=======
+
+      const successfulEventsCount = await Event.countDocuments({ host: host._id, isSuccessful: true });
+      if (successfulEventsCount >= 5 && !host.badges.includes("Organizer")) {
+        host.badges.push("Organizer");
+        await Notification.create({
+          user: host._id,
+          type: "badge_earned",
+          title: "New Badge Earned!",
+          message: "Congratulations! You've earned the Organizer badge for hosting 5 successful events."
+        });
+      }
+
+>>>>>>> main
       const newBadges = PointsCalculator.checkNewBadges(host);
       if (newBadges.length > 0) {
         host.badges = [...(host.badges || []), ...newBadges];
@@ -706,7 +995,11 @@ exports.submitEndorsement = async (req, res, next) => {
       }
       await host.save();
     }
+<<<<<<< HEAD
     event.status = "completed";
+=======
+
+>>>>>>> main
     await event.save();
     res.json({
       endorsement: endorsementPercentage,

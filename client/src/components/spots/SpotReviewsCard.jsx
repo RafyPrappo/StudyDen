@@ -2,12 +2,20 @@ import { useEffect, useState } from "react";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import { spotApi } from "../../services/spot";
+<<<<<<< HEAD
 import { Loader2, Star } from "lucide-react";
+=======
+import { Loader2, Star, Sparkles, ThumbsUp, ThumbsDown, Clock3 } from "lucide-react";
+>>>>>>> main
 
 export default function SpotReviewsCard({
   spotId,
   canReview = true,
   amenities = [],
+<<<<<<< HEAD
+=======
+  analytics = null,
+>>>>>>> main
 }) {
   const [reviews, setReviews] = useState([]);
   const [summary, setSummary] = useState({ averageRating: 0, totalReviews: 0 });
@@ -23,6 +31,13 @@ export default function SpotReviewsCard({
   const [saveMessage, setSaveMessage] = useState("");
   const [editingReview, setEditingReview] = useState(false);
 
+<<<<<<< HEAD
+=======
+  const [aiLoading, setAiLoading] = useState(true);
+  const [aiError, setAiError] = useState("");
+  const [aiData, setAiData] = useState(null);
+
+>>>>>>> main
   const loadData = async () => {
     try {
       setLoading(true);
@@ -59,9 +74,31 @@ export default function SpotReviewsCard({
     }
   };
 
+<<<<<<< HEAD
   useEffect(() => {
     if (!spotId) return;
     loadData();
+=======
+  const loadAISummary = async () => {
+    try {
+      setAiLoading(true);
+      setAiError("");
+
+      const data = await spotApi.getAISummary(spotId);
+      setAiData(data || null);
+    } catch (err) {
+      setAiError(err.message || "Failed to load AI summary");
+      setAiData(null);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!spotId) return;
+    loadData();
+    loadAISummary();
+>>>>>>> main
   }, [spotId, canReview]);
 
   const toggleAmenity = (amenity) => {
@@ -92,6 +129,11 @@ export default function SpotReviewsCard({
       });
 
       await loadData();
+<<<<<<< HEAD
+=======
+      await loadAISummary();
+
+>>>>>>> main
       setSaveMessage("Review saved successfully");
       setEditingReview(false);
     } catch (err) {
@@ -142,6 +184,95 @@ export default function SpotReviewsCard({
             </div>
           </div>
 
+<<<<<<< HEAD
+=======
+          <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles size={18} className="text-blue-600" />
+              <h4 className="text-sm font-semibold text-gray-900">
+                AI Review Summary
+              </h4>
+            </div>
+
+            {aiLoading ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Loader2 size={16} className="animate-spin text-blue-600" />
+                Generating summary...
+              </div>
+            ) : aiError ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {aiError}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-700 leading-6">
+                    {aiData?.summary || "No AI summary available yet."}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock3 size={16} className="text-gray-600" />
+                    <h5 className="text-sm font-semibold text-gray-900">
+                      Best Time to Visit
+                    </h5>
+                  </div>
+                  <p className="text-sm text-gray-700">
+                    {analytics?.peakHour?.label
+                      ? `${analytics.peakHour.label}`
+                      : "Not enough check-in data yet."}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <ThumbsUp size={16} className="text-green-700" />
+                      <h5 className="text-sm font-semibold text-green-900">
+                        Pros
+                      </h5>
+                    </div>
+
+                    {aiData?.pros?.length > 0 ? (
+                      <ul className="space-y-2 text-sm text-green-900 list-disc pl-5">
+                        {aiData.pros.map((item, index) => (
+                          <li key={`${item}-${index}`}>{item}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-green-900">
+                        No clear pros found yet.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <ThumbsDown size={16} className="text-red-700" />
+                      <h5 className="text-sm font-semibold text-red-900">
+                        Cons
+                      </h5>
+                    </div>
+
+                    {aiData?.cons?.length > 0 ? (
+                      <ul className="space-y-2 text-sm text-red-900 list-disc pl-5">
+                        {aiData.cons.map((item, index) => (
+                          <li key={`${item}-${index}`}>{item}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-red-900">
+                        No clear cons found yet.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+>>>>>>> main
           {myReview && !editingReview && (
             <div className="mb-6">
               <Button onClick={() => setEditingReview(true)}>
@@ -286,12 +417,21 @@ export default function SpotReviewsCard({
 
                   {review.availableAmenities?.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
+<<<<<<< HEAD
                       {review.availableAmenities.map((item) => (
                         <span
                           key={item}
                           className="px-2.5 py-1 rounded-full text-xs bg-slate-100 text-slate-700"
                         >
                           {item}
+=======
+                      {review.availableAmenities.map((amenity) => (
+                        <span
+                          key={amenity}
+                          className="px-2.5 py-1 rounded-full text-xs bg-slate-100 text-slate-700 border border-slate-200"
+                        >
+                          {amenity}
+>>>>>>> main
                         </span>
                       ))}
                     </div>
@@ -304,4 +444,8 @@ export default function SpotReviewsCard({
       )}
     </Card>
   );
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> main

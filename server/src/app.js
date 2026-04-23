@@ -11,21 +11,42 @@ const userRoutes = require("./routes/user.routes");
 const adminRoutes = require("./routes/admin.routes");
 const spotRoutes = require("./routes/spot.routes");
 const calendarRoutes = require("./routes/calendar.routes");
+<<<<<<< HEAD
 <<<<<<< Updated upstream
 =======
 const barikoiRoutes = require('./routes/barikoi.routes');
 const homeRoutes = require("./routes/home.routes");
 >>>>>>> Stashed changes
+=======
+const barikoiRoutes = require('./routes/barikoi.routes');
+>>>>>>> main
 const { notFound, errorHandler } = require("./middleware/error.middleware");
 
 const app = express();
 
+// --- CORS configuration (allows localhost and the deployed frontend) ---
+const allowedOrigins = [
+  'http://localhost:5173',
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        console.log(`CORS blocked origin: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   })
 );
+// -------------------------------------------------------------
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -43,11 +64,15 @@ app.use("/api/events", eventRoutes);
 app.use("/api/spots", spotRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
+<<<<<<< HEAD
 <<<<<<< Updated upstream
 =======
 app.use('/api/barikoi', barikoiRoutes);
 app.use("/api/home", homeRoutes);
 >>>>>>> Stashed changes
+=======
+app.use('/api/barikoi', barikoiRoutes);
+>>>>>>> main
 
 app.use(notFound);
 app.use(errorHandler);

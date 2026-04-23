@@ -6,9 +6,9 @@ import Button from "../components/ui/Button";
 import EventCard from "../components/events/EventCard";
 import CreateEventModal from "../components/events/CreateEventModal";
 import { eventApi } from "../services/event";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, Plus } from "lucide-react";
 
-const TOPICS = ["All", "Design", "Development", "Academic", "Nature", "Other", "Joined Events"];
+const TOPICS = ["All", "Design", "Development", "Academic", "Nature", "Other", "My Events"];
 
 export default function EventsPage() {
   const { user } = useAuth();
@@ -42,13 +42,19 @@ export default function EventsPage() {
 <<<<<<< Updated upstream
 =======
       
+<<<<<<< HEAD
 >>>>>>> Stashed changes
+=======
+      // Build params: always include upcoming and ongoing
+>>>>>>> main
       const params = {
-        topic: selectedTopic,
+        topic: selectedTopic !== "My Events" ? selectedTopic : undefined,
+        status: "upcoming,ongoing",
         page,
         limit: 9
       };
       if (searchQuery) params.search = searchQuery;
+<<<<<<< HEAD
       const data = await eventApi.getEvents(params);
       let filteredEvents = data.events || [];
 <<<<<<< Updated upstream
@@ -57,6 +63,14 @@ export default function EventsPage() {
 
       if (selectedTopic === "My Events" && user) {
 >>>>>>> Stashed changes
+=======
+
+      const data = await eventApi.getEvents(params);
+      let filteredEvents = data.events || [];
+
+      // If "My Events" is selected, keep only events the user is attending
+      if (selectedTopic === "My Events" && user) {
+>>>>>>> main
         filteredEvents = filteredEvents.filter(e => e.isAttending);
       }
       setEvents(filteredEvents);
@@ -93,7 +107,7 @@ export default function EventsPage() {
     <Container>
       <div className="mb-12">
         <div className="text-center max-w-2xl mx-auto">
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">Upcoming events</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">Upcoming & Ongoing Events</h1>
           <p className="text-gray-600 mb-8">
             Join workshops, networking sessions and community meetups
           </p>
@@ -116,6 +130,7 @@ export default function EventsPage() {
         </div>
       </div>
 
+<<<<<<< HEAD
       {/* ---------- FILTER CHIPS (scrollable on mobile) ---------- */}
       <div className="mb-10 px-4 sm:px-0">
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -136,6 +151,25 @@ export default function EventsPage() {
             </button>
           ))}
         </div>
+=======
+      <div className="flex justify-center gap-2 mb-10 overflow-x-auto pb-2 scrollbar-hide">
+        {TOPICS.map((topic) => (
+          <button
+            key={topic}
+            onClick={() => {
+              setSelectedTopic(topic);
+              setPage(1);
+            }}
+            className={`px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+              selectedTopic === topic
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            {topic}
+          </button>
+        ))}
+>>>>>>> main
       </div>
       {/* -------------------------------------------------------- */}
 
@@ -198,6 +232,19 @@ export default function EventsPage() {
         </>
       )}
 
+<<<<<<< HEAD
+=======
+      {user && (
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-700 hover:scale-105 transition-all duration-200 z-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          aria-label="Create event"
+        >
+          <Plus size={28} />
+        </button>
+      )}
+
+>>>>>>> main
       {showCreateModal && (
         <CreateEventModal 
           onClose={() => setShowCreateModal(false)}

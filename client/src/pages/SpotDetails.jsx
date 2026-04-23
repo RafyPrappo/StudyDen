@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Container from "../components/ui/Container";
@@ -25,6 +25,13 @@ import {
   Clock3,
   Volume2,
   UserCheck,
+<<<<<<< HEAD
+=======
+  Navigation,
+  CheckCircle,
+  AlertTriangle,
+  Building2,
+>>>>>>> main
 } from "lucide-react";
 
 const amenityIcons = {
@@ -67,6 +74,7 @@ export default function SpotDetails() {
   const [spot, setSpot] = useState(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [gettingDirection, setGettingDirection] = useState(false);
   const [error, setError] = useState("");
 
   const [showCheckInForm, setShowCheckInForm] = useState(false);
@@ -77,24 +85,127 @@ export default function SpotDetails() {
 
   const [myLatestCheckIn, setMyLatestCheckIn] = useState(null);
   const [latestCheckIn, setLatestCheckIn] = useState(null);
+<<<<<<< HEAD
+=======
+  const [analytics, setAnalytics] = useState(null);
+
+  const mapContainerRef = useRef(null);
+  const mapRef = useRef(null);
+  const routeSourceReadyRef = useRef(false);
+  const [routeData, setRouteData] = useState(null);
+  const [routeError, setRouteError] = useState("");
+  const [selectedProfile, setSelectedProfile] = useState("car");
+  const destinationMarkerRef = useRef(null);
+  const userMarkerRef = useRef(null);
+  const watchIdRef = useRef(null);
+  const [liveLocation, setLiveLocation] = useState(null);
+  const [isTracking, setIsTracking] = useState(false);
+  const [autoFollow, setAutoFollow] = useState(true);
+>>>>>>> main
 
   useEffect(() => {
     fetchSpotDetails();
   }, [id]);
 
+<<<<<<< HEAD
+=======
+  useEffect(() => {
+    if (!spot?.location?.lat || !spot?.location?.lng) return;
+    if (!window.bkoigl || !mapContainerRef.current || mapRef.current) return;
+
+    const map = new window.bkoigl.Map({
+      container: mapContainerRef.current,
+      center: [spot.location.lng, spot.location.lat],
+      zoom: 14,
+      accessToken: import.meta.env.VITE_BARIKOI_API_KEY,
+    });
+
+    mapRef.current = map;
+    map.addControl(new window.bkoigl.NavigationControl(), "top-right");
+
+    map.on("load", () => {
+      map.addSource("route-line", {
+        type: "geojson",
+        data: {
+          type: "Feature",
+          geometry: {
+            type: "LineString",
+            coordinates: [],
+          },
+        },
+      });
+
+      map.addLayer({
+        id: "route-line-layer",
+        type: "line",
+        source: "route-line",
+        paint: {
+          "line-width": 5,
+        },
+      });
+
+      routeSourceReadyRef.current = true;
+
+      destinationMarkerRef.current = new window.bkoigl.Marker()
+        .setLngLat([spot.location.lng, spot.location.lat])
+        .addTo(map);
+    });
+
+    return () => {
+      routeSourceReadyRef.current = false;
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [spot]);
+
+  useEffect(() => {
+    if (!routeData || !mapRef.current || !routeSourceReadyRef.current) return;
+
+    const source = mapRef.current.getSource("route-line");
+    if (!source) return;
+
+    source.setData({
+      type: "Feature",
+      geometry: routeData.geometry,
+    });
+
+    const bounds = new window.bkoigl.LngLatBounds();
+    routeData.geometry.coordinates.forEach((coord) => bounds.extend(coord));
+    mapRef.current.fitBounds(bounds, { padding: 50 });
+  }, [routeData]);
+
+>>>>>>> main
   const fetchSpotDetails = async () => {
     try {
       setLoading(true);
       setError("");
 
+<<<<<<< HEAD
       const [spotData, checkInData] = await Promise.all([
         spotApi.getSpot(id),
         spotApi.getCheckInStatus(id),
+=======
+      const [spotData, checkInData, analyticsData] = await Promise.all([
+        spotApi.getSpot(id),
+        spotApi.getCheckInStatus(id),
+        spotApi.getSpotAnalytics(id),
+>>>>>>> main
       ]);
 
       setSpot(spotData.spot);
       setMyLatestCheckIn(checkInData.myLatestCheckIn || null);
       setLatestCheckIn(checkInData.latestCheckIn || null);
+<<<<<<< HEAD
+=======
+      setAnalytics(analyticsData.analytics || null);
+>>>>>>> main
     } catch (err) {
       setError(err.message || "Failed to load study spot");
       console.error(err);
@@ -144,6 +255,122 @@ export default function SpotDetails() {
     }
   };
 
+<<<<<<< HEAD
+=======
+  const handleDirection = async () => {
+    if (!spot?.location?.lat || !spot?.location?.lng) {
+      alert("Location coordinates are not available for this spot yet.");
+      return;
+    }
+    setGettingDirection(true);
+    setRouteError("");
+
+    try {
+      let userLat;
+      let userLng;
+
+      if (liveLocation?.lat && liveLocation?.lng) {
+        userLat = liveLocation.lat;
+        userLng = liveLocation.lng;
+      } else {
+        if (!navigator.geolocation) {
+          throw new Error("Geolocation is not supported by your browser.");
+        }
+
+        const position = await new Promise((resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(resolve, reject)
+        );
+
+        userLat = position.coords.latitude;
+        userLng = position.coords.longitude;
+      }
+
+      setRouteData(null);
+
+      const data = await spotApi.getDirections(id, {
+        startLat: userLat,
+        startLng: userLng,
+        profile: selectedProfile,
+      });
+
+      if (!data.route) {
+        setRouteError(data.message || "No route found.");
+        return;
+      }
+
+      setRouteData(data.route);
+
+      if (!isTracking) {
+        startLiveTracking();
+      }
+    } catch (err) {
+      console.error("Failed to get route:", err);
+      setRouteError(err.message || "Failed to load route.");
+    } finally {
+      setGettingDirection(false);
+    }
+  };
+
+  const updateUserMarker = (lng, lat) => {
+    if (!mapRef.current) return;
+
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setLngLat([lng, lat]);
+    } else {
+      userMarkerRef.current = new window.bkoigl.Marker()
+        .setLngLat([lng, lat])
+        .addTo(mapRef.current);
+    }
+
+    if (autoFollow) {
+      mapRef.current.easeTo({
+        center: [lng, lat],
+        zoom: Math.max(mapRef.current.getZoom(), 15),
+        duration: 800,
+      });
+    }
+  };
+
+  const startLiveTracking = () => {
+    if (!navigator.geolocation) {
+      setRouteError("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    if (watchIdRef.current !== null) return;
+
+    setIsTracking(true);
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+
+        setLiveLocation({ lat, lng });
+        updateUserMarker(lng, lat);
+      },
+      (err) => {
+        console.error("Live location error:", err);
+        setRouteError("Unable to track your live location.");
+        setIsTracking(false);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 3000,
+        timeout: 10000,
+      }
+    );
+  };
+
+  const stopLiveTracking = () => {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    setIsTracking(false);
+  };
+
+>>>>>>> main
   const formatDateTime = (dateValue) => {
     if (!dateValue) return "N/A";
 
@@ -198,7 +425,11 @@ export default function SpotDetails() {
   return (
     <Container>
       <div className="max-w-7xl mx-auto">
+<<<<<<< HEAD
         <div className="flex items-center justify-between gap-3 mb-6">
+=======
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+>>>>>>> main
           <Link to="/spots">
             <Button variant="ghost">
               <ArrowLeft size={16} />
@@ -233,6 +464,7 @@ export default function SpotDetails() {
             <Card className="p-6 sm:p-8">
               <div className="flex items-start justify-between gap-4 mb-5">
                 <div>
+<<<<<<< HEAD
                   <span
                     className={`inline-flex px-3 py-1 rounded-full text-xs font-medium border mb-4 ${
                       typeStyles[spot.type] || typeStyles.Public
@@ -240,6 +472,34 @@ export default function SpotDetails() {
                   >
                     {spot.type}
                   </span>
+=======
+                  <div className="flex flex-wrap items-center gap-2 mb-4">
+                    <span
+                      className={`inline-flex px-3 py-1 rounded-full text-xs font-medium border ${
+                        typeStyles[spot.type] || typeStyles.Public
+                      }`}
+                    >
+                      {spot.type}
+                    </span>
+
+                    {/* Verification Badges */}
+                    {spot.verificationStatus === "Verified" && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border bg-green-100 text-green-700 border-green-200">
+                        <CheckCircle size={12} /> Verified
+                      </span>
+                    )}
+                    {spot.verificationStatus === "Unverified" && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border bg-yellow-100 text-yellow-700 border-yellow-200">
+                        <AlertTriangle size={12} /> Unverified
+                      </span>
+                    )}
+                    {spot.verificationStatus === "Commercial" && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border bg-purple-100 text-purple-700 border-purple-200">
+                        <Building2 size={12} /> Commercial
+                      </span>
+                    )}
+                  </div>
+>>>>>>> main
 
                   <h1 className="text-3xl font-bold text-gray-900 mb-3">
                     {spot.title}
@@ -253,7 +513,11 @@ export default function SpotDetails() {
                     <span>{spot.address}</span>
                   </div>
 
+<<<<<<< HEAD
                   <div className="flex items-center gap-2 text-sm text-gray-500">
+=======
+                  <div className="flex items-center gap-2 text-sm text-gray-500 mt-3">
+>>>>>>> main
                     <CalendarDays size={16} className="text-gray-400" />
                     <span>Posted on {createdDate}</span>
                   </div>
@@ -295,6 +559,119 @@ export default function SpotDetails() {
               </div>
 
               <div className="mb-8">
+<<<<<<< HEAD
+=======
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Route Map
+                  </h2>
+
+                  <Button onClick={handleDirection} disabled={gettingDirection}>
+                    {gettingDirection ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Getting route...
+                      </>
+                    ) : (
+                      <>
+                        <Navigation size={16} />
+                        Directions
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                <div className="relative rounded-xl overflow-hidden border border-gray-200">
+                  <div className="absolute top-3 left-3 z-10 flex flex-wrap gap-2 max-w-[90%]">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProfile("car")}
+                      className={`px-4 py-2 rounded-full text-sm font-medium shadow-sm ${
+                        selectedProfile === "car"
+                          ? "bg-blue-600 text-white"
+                          : "bg-white text-gray-700 border border-gray-200"
+                      }`}
+                    >
+                      Car
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProfile("bike")}
+                      className={`px-4 py-2 rounded-full text-sm font-medium shadow-sm ${
+                        selectedProfile === "bike"
+                          ? "bg-blue-600 text-white"
+                          : "bg-white text-gray-700 border border-gray-200"
+                      }`}
+                    >
+                      Bike
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProfile("foot")}
+                      className={`px-4 py-2 rounded-full text-sm font-medium shadow-sm ${
+                        selectedProfile === "foot"
+                          ? "bg-blue-600 text-white"
+                          : "bg-white text-gray-700 border border-gray-200"
+                      }`}
+                    >
+                      Walk
+                    </button>
+                  </div>
+
+                  <div ref={mapContainerRef} className="h-80 w-full" />
+                </div>
+
+                {routeError && (
+                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                    {routeError}
+                  </div>
+                )}
+
+                {routeData && (
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="p-3 rounded-lg bg-gray-50 border border-gray-200 text-sm">
+                      <span className="font-medium">Distance:</span>{" "}
+                      {(routeData.distance / 1000).toFixed(2)} km
+                    </div>
+                    <div className="p-3 rounded-lg bg-gray-50 border border-gray-200 text-sm">
+                      <span className="font-medium">Estimated time:</span>{" "}
+                      {Math.ceil(routeData.duration / 60)} min
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setAutoFollow((prev) => !prev)}
+                >
+                  {autoFollow ? "Auto-follow: On" : "Auto-follow: Off"}
+                </Button>
+
+                {isTracking ? (
+                  <Button type="button" variant="ghost" onClick={stopLiveTracking}>
+                    Stop Tracking
+                  </Button>
+                ) : (
+                  <Button type="button" variant="ghost" onClick={startLiveTracking}>
+                    Start Tracking
+                  </Button>
+                )}
+              </div>
+
+              {liveLocation && (
+                <div className="mt-3 p-3 rounded-lg bg-gray-50 border border-gray-200 text-sm">
+                  <span className="font-medium">Live location:</span>{" "}
+                  {liveLocation.lat.toFixed(6)}, {liveLocation.lng.toFixed(6)}
+                </div>
+              )}
+
+              <div className="mb-8">
+>>>>>>> main
                 <h2 className="text-lg font-semibold text-gray-900 mb-3">
                   Check In
                 </h2>
@@ -324,11 +701,19 @@ export default function SpotDetails() {
                   <div className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors">
                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 overflow-hidden flex-shrink-0">
                       {spot.postedBy?.profilePhoto ? (
+<<<<<<< HEAD
                         <img
                           src={`http://localhost:5000${spot.postedBy.profilePhoto}`}
                           alt={spot.postedBy?.name}
                           className="w-full h-full object-cover"
                         />
+=======
+                      <img
+                        src={`${import.meta.env.VITE_API_BASE_URL}${spot.postedBy.profilePhoto}`}
+                        alt={spot.postedBy?.name}
+                        className="w-full h-full object-cover"
+                      />
+>>>>>>> main
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-white font-semibold text-lg">
                           {spot.postedBy?.name?.charAt(0).toUpperCase() || "?"}
@@ -549,6 +934,7 @@ export default function SpotDetails() {
                 </p>
               )}
             </Card>
+<<<<<<< HEAD
           </div>
 
           <div className="lg:col-span-1 self-start">
@@ -559,6 +945,89 @@ export default function SpotDetails() {
              amenities={spot.amenities || []}
             />
 
+=======
+
+            <Card className="p-6 mt-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                Spot Analytics
+              </h2>
+
+              {analytics && analytics.totalCheckIns > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                      <Users size={16} />
+                      Average crowd
+                    </div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {analytics.averageCrowdLevel} - {analytics.averageCrowdLabel}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                      <Volume2 size={16} />
+                      Average noise
+                    </div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {analytics.averageNoiseLevel} - {analytics.averageNoiseLabel}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                      <Clock3 size={16} />
+                      Peak hour
+                    </div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {analytics.peakHour?.label || "N/A"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="text-sm text-gray-500 mb-2">
+                      Total check-ins
+                    </div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {analytics.totalCheckIns}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="text-sm text-gray-500 mb-2">
+                      Check-ins in last 24 hours
+                    </div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {analytics.recentCheckIns?.last24Hours || 0}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="text-sm text-gray-500 mb-2">
+                      Check-ins in last 7 days
+                    </div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {analytics.recentCheckIns?.last7Days || 0}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-500">
+                  No analytics available yet for this study spot.
+                </p>
+              )}
+            </Card>
+
+          </div>
+
+          <div className="lg:col-span-1 self-start">
+          <SpotReviewsCard
+            spotId={spot._id}
+            canReview={canReview}
+            amenities={spot.amenities || []}
+            analytics={analytics}
+          />
+>>>>>>> main
           </div>
         </div>
       </div>

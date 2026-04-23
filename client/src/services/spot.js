@@ -15,7 +15,38 @@ export const spotApi = {
     return api.get(`/api/spots${queryString ? `?${queryString}` : ""}`);
   },
 
+  getMyPreferredSpots: (params = {}) => {
+    const queryParams = new URLSearchParams();
+
+    if (params.page) queryParams.append("page", params.page);
+    if (params.limit) queryParams.append("limit", params.limit);
+
+    const queryString = queryParams.toString();
+    return api.get(`/api/spots/my-preferences${queryString ? `?${queryString}` : ""}`, {
+      credentials: "include",
+    });
+  },
+
+  getDirections: (id, params = {}) => {
+    const queryParams = new URLSearchParams();
+
+    if (params.startLat) queryParams.append("startLat", params.startLat);
+    if (params.startLng) queryParams.append("startLng", params.startLng);
+    if (params.profile) queryParams.append("profile", params.profile);
+
+    const queryString = queryParams.toString();
+
+    return api.get(
+      `/api/spots/${id}/directions${queryString ? `?${queryString}` : ""}`,
+      { credentials: "include" }
+    );
+  },
+
   getSpot: (id) => api.get(`/api/spots/${id}`),
+
+  getSpotAnalytics: (id) => api.get(`/api/spots/${id}/analytics`),
+
+  getAISummary: (id) => api.get(`/api/spots/${id}/ai-summary`),
 
   createSpot: (data) => api.post("/api/spots", data, { credentials: "include" }),
 
@@ -36,4 +67,22 @@ export const spotApi = {
 
   saveReview: (id, data) =>
     api.post(`/api/spots/${id}/reviews`, data, { credentials: "include" }),
+<<<<<<< HEAD
+=======
+  
+  reportSpot: (id, data) =>
+    api.post(`/api/spots/${id}/report`, data, { credentials: "include" }),
+
+  toggleFavourite: (spotId) =>
+    api.post(`/api/users/favourites/${spotId}`, {}, { credentials: "include" }),
+
+  getFavouriteSpots: () =>
+    api.get("/api/users/favourites", { credentials: "include" }),
+
+  getVisitedSpots: () =>
+    api.get("/api/users/visited-spots", { credentials: "include" }),
+
+  getFrequentSpots: () =>
+    api.get("/api/users/frequent-spots", { credentials: "include" }),
+>>>>>>> main
 };
