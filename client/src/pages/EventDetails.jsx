@@ -17,6 +17,20 @@ const TOPIC_COLORS = {
   Other: "bg-gray-100 text-gray-700 border-gray-200"
 };
 
+<<<<<<< Updated upstream
+=======
+const ALLOW_SIMULATE_PRESENCE = true; // set false in production
+
+// Helper: combine date and time from event object
+function getEventDateTime(event) {
+  if (!event) return new Date();
+  const [hours, minutes] = event.time.split(':').map(Number);
+  const dt = new Date(event.date);
+  dt.setHours(hours, minutes, 0, 0);
+  return dt;
+}
+
+>>>>>>> Stashed changes
 export default function EventDetails() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -32,11 +46,220 @@ export default function EventDetails() {
   const [showAuthMessage, setShowAuthMessage] = useState(false);
   const [hasSynced, setHasSynced] = useState(false);
   const [leaving, setLeaving] = useState(false);
+<<<<<<< Updated upstream
+=======
+  const [calendarConnected, setCalendarConnected] = useState(false);
+  const [checkingConnection, setCheckingConnection] = useState(true);
+  const [endorsing, setEndorsing] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const [checkingIn, setCheckingIn] = useState(false);
+  const [locationError, setLocationError] = useState("");
+  const [userHasEndorsed, setUserHasEndorsed] = useState(false);
+  const [isTracking, setIsTracking] = useState(false);
+  const [trackingStatus, setTrackingStatus] = useState("");
+  const [userCheckedIn, setUserCheckedIn] = useState(false);
+  const [timeAccrued, setTimeAccrued] = useState(0);
+  const trackingIntervalRef = useRef(null);
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+>>>>>>> Stashed changes
 
   useEffect(() => {
     fetchEvent();
   }, [id]);
 
+<<<<<<< Updated upstream
+=======
+  useEffect(() => {
+    if (!user) {
+      setCheckingConnection(false);
+      return;
+    }
+    const checkConnection = async () => {
+      try {
+        const { connected } = await calendarApi.checkConnection();
+        setCalendarConnected(connected);
+      } catch (err) {
+        setCalendarConnected(false);
+      } finally {
+        setCheckingConnection(false);
+      }
+    };
+    checkConnection();
+  }, [user]);
+
+  useEffect(() => {
+    const handleMessage = (event) => {
+      if (event.data?.type === 'CALENDAR_CONNECTED' && event.data.success) {
+        setCalendarConnected(true);
+        setShowAuthMessage(false);
+        handleSyncToCalendar();
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  useEffect(() => {
+    if (!event?.coordinates || !mapContainerRef.current) return;
+
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
+    }
+
+    const container = mapContainerRef.current;
+    container.innerHTML = '';
+
+    try {
+      const map = L.map(container).setView([event.coordinates.lat, event.coordinates.lng], 15);
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; CartoDB',
+        subdomains: "abcd",
+        maxZoom: 19,
+      }).addTo(map);
+      L.marker([event.coordinates.lat, event.coordinates.lng])
+        .addTo(map)
+        .bindPopup(`<b>${event.title}</b><br>${event.location}`)
+        .openPopup();
+      mapInstanceRef.current = map;
+    } catch (err) {
+      console.error("Map initialization error:", err);
+    }
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [event]);
+
+  useEffect(() => {
+    if (!event || !user) return;
+    const userId = user._id || user.id;
+    const isHost = event.host?._id === userId;
+    
+    if (isHost) {
+      setUserCheckedIn(event.hostPresent === true);
+    } else {
+      const timer = event.attendeeTimers?.[userId];
+      setUserCheckedIn(timer?.present === true || timer?.joinedAt != null);
+      setTimeAccrued(timer?.totalMinutes || 0);
+    }
+  }, [event, user]);
+
+  useEffect(() => {
+    if (!event || !user) return;
+    const shouldPoll = userCheckedIn && (event.status === "ongoing" || event.status === "upcoming");
+    
+    if (shouldPoll) {
+      startTracking();
+    } else {
+      stopTracking();
+    }
+    
+    return () => stopTracking();
+  }, [userCheckedIn, event?.status]);
+
+  const startTracking = () => {
+    if (trackingIntervalRef.current) return;
+    setIsTracking(true);
+    setTrackingStatus("Tracking your location...");
+    sendLocation();
+    trackingIntervalRef.current = setInterval(() => {
+      sendLocation();
+    }, 30000);
+  };
+
+  const stopTracking = () => {
+    if (trackingIntervalRef.current) {
+      clearInterval(trackingIntervalRef.current);
+      trackingIntervalRef.current = null;
+    }
+    setIsTracking(false);
+    setTrackingStatus("");
+  };
+
+  const sendLocation = async () => {
+    if (!navigator.geolocation) {
+      setTrackingStatus("Geolocation not supported");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const data = await eventApi.trackLocation(id, latitude, longitude);
+          
+          if (data.role === "host") {
+            setTrackingStatus(`Host present: ${data.hostPresent ? "Yes" : "Outside event area"}`);
+            if (data.hostPresent) {
+              setUserCheckedIn(true);
+            }
+          } else if (data.role === "attendee") {
+            const minutes = data.timer?.minutes || 0;
+            const required = data.timer?.requiredMinutes || 1;
+            setTimeAccrued(minutes);
+            setTrackingStatus(`Present: ${data.withinRadius ? "Yes" : "Outside"} | Time: ${minutes}/${required} min`);
+            if (data.timer?.completed) {
+              fetchEvent();
+            }
+          }
+          
+          if (Math.random() < 0.3) {
+            fetchEvent();
+          }
+        } catch (err) {
+          console.error("Failed to send location:", err);
+          setTrackingStatus("Location update failed");
+        }
+      },
+      (err) => {
+        console.error("Geolocation error:", err);
+        setTrackingStatus(`Location error: ${err.message}`);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  const handleCheckIn = async (useSimulated = false) => {
+    setCheckingIn(true);
+    setLocationError("");
+    
+    try {
+      let lat, lng;
+      
+      if (useSimulated && event?.coordinates) {
+        lat = event.coordinates.lat;
+        lng = event.coordinates.lng;
+      } else {
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 });
+        });
+        lat = position.coords.latitude;
+        lng = position.coords.longitude;
+      }
+      
+      await eventApi.trackLocation(id, lat, lng);
+      await fetchEvent();
+      setUserCheckedIn(true);
+      setTrackingStatus(useSimulated ? "Checked in with simulated location" : "Checked in! Tracking started.");
+      setLocationError("");
+    } catch (err) {
+      console.error("Check-in error:", err);
+      if (err.code === 1) {
+        setLocationError("Location permission denied. Please enable location services or use 'Simulate Presence' for demo.");
+      } else {
+        setLocationError(err.message || "Failed to check in");
+      }
+    } finally {
+      setCheckingIn(false);
+    }
+  };
+
+>>>>>>> Stashed changes
   const fetchEvent = async () => {
     try {
       setLoading(true);
@@ -44,7 +267,10 @@ export default function EventDetails() {
       setEvent(data.event);
       setIsFavorited(data.event.isFavorited || false);
       setHasSynced(data.event.hasSynced || false);
+<<<<<<< Updated upstream
       setShowAuthMessage(false);
+=======
+>>>>>>> Stashed changes
     } catch (err) {
       setError("Failed to load event details");
       console.error(err);
@@ -159,14 +385,24 @@ export default function EventDetails() {
 
   const userId = user?.id || user?._id;
   const hostId = event.host?._id;
+<<<<<<< Updated upstream
   const isHost = userId && hostId && userId === hostId;
   
   // Compute isAttending manually from attendees array as a fallback
   const isAttending = event.isAttending || (user && event.attendees?.some(a => a._id === userId));
+=======
+  const isHost = !!(userId && hostId && userId === hostId);
+  const isAttending = event.isAttending === true;
+  
+  // FIX: use combined date+time to determine past event correctly
+  const eventDateTime = getEventDateTime(event);
+  const isPastEvent = eventDateTime < new Date();
+>>>>>>> Stashed changes
   
   const isFull = event.attendees?.length >= event.maxAttendees;
   const spotsText = `${event.attendees?.length || 0}/${event.maxAttendees} spots filled`;
   const spotsColor = isFull ? "text-red-600" : "text-green-600";
+<<<<<<< Updated upstream
   const eventDate = new Date(event.date);
   const formattedDate = eventDate.toLocaleDateString("en-US", {
     weekday: "long",
@@ -176,6 +412,15 @@ export default function EventDetails() {
   });
 
   const showSyncButton = user && (isHost || isAttending) && !hasSynced;
+=======
+  const formattedDate = eventDateTime.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  const showSyncButton = user && (isHost || isAttending) && !hasSynced && !isPastEvent;
+  const showConnectButton = showSyncButton && !calendarConnected && !checkingConnection;
+  const canEndorse = event.status === "completed" && isAttending && event.attendeesPresent?.includes(userId);
+  const showCheckInButton = (isHost || isAttending) && 
+                            (event.status === "upcoming" || event.status === "ongoing") && 
+                            !userCheckedIn;
+>>>>>>> Stashed changes
 
   return (
     <Container>
@@ -256,11 +501,30 @@ export default function EventDetails() {
         {/* Sidebar */}
         <div className="space-y-6">
           <Card className="p-6">
+<<<<<<< Updated upstream
             <div className="text-center mb-4">
               <span className={`text-2xl font-bold ${spotsColor}`}>{event.attendees?.length || 0}/{event.maxAttendees}</span>
               <p className="text-sm text-gray-500">spots filled</p>
             </div>
 
+=======
+            <div className="text-center mb-4"><span className={`text-2xl font-bold ${spotsColor}`}>{event.attendees?.length || 0}/{event.maxAttendees}</span><p className="text-sm text-gray-500">spots filled</p></div>
+            
+            {showCheckInButton && (
+              <div className="space-y-2 mb-3">
+                <Button onClick={() => handleCheckIn(false)} disabled={checkingIn} variant="primary" className="w-full">
+                  {checkingIn ? <><Loader2 size={16} className="animate-spin" /> Checking in...</> : <><MapPinCheck size={16} /> Check In (Use My Location)</>}
+                </Button>
+                {ALLOW_SIMULATE_PRESENCE && event?.coordinates && (
+                  <Button onClick={() => handleCheckIn(true)} disabled={checkingIn} variant="ghost" className="w-full border border-gray-300">
+                    <RefreshCw size={16} /> Simulate Presence (Test Mode)
+                  </Button>
+                )}
+                <p className="text-xs text-gray-400 text-center">Your location is used to verify attendance</p>
+              </div>
+            )}
+            
+>>>>>>> Stashed changes
             {isHost ? (
               <div className="space-y-2">
                 <Button variant="ghost" className="w-full text-red-600 border-red-200 hover:bg-red-50" onClick={handleCancel}>Cancel Event</Button>
@@ -312,12 +576,19 @@ export default function EventDetails() {
                 )}
               </div>
             )}
+<<<<<<< Updated upstream
 
             {!user && (
               <p className="text-xs text-gray-500 text-center mt-3">
                 <Link to="/login" className="text-blue-600 hover:underline">Login</Link> to join this event
               </p>
             )}
+=======
+            {!user && <p className="text-xs text-gray-500 text-center mt-3"><Link to="/login" className="text-blue-600 hover:underline">Login</Link> to join</p>}
+            <Button onClick={fetchEvent} variant="ghost" size="sm" className="w-full mt-3 text-xs">
+              <RefreshCw size={12} /> Refresh Status
+            </Button>
+>>>>>>> Stashed changes
           </Card>
 
           <Card className="p-6">

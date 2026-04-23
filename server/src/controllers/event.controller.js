@@ -55,6 +55,7 @@ async function geocodeAddress(address) {
   }
 }
 
+<<<<<<< Updated upstream
 async function rateLimitedGeocode(address) {
   const now = Date.now();
   const timeSinceLastRequest = now - lastRequestTime;
@@ -64,6 +65,44 @@ async function rateLimitedGeocode(address) {
   lastRequestTime = Date.now();
   return geocodeAddress(address);
 }
+=======
+// ========== TEST VALUES – CHANGE BACK TO 30 FOR PRODUCTION ==========
+const REQUIRED_HOST_MINUTES = 1;        // 1 minute for testing
+const REQUIRED_ATTENDEE_MINUTES = 1;    // 1 minute for testing
+// ====================================================================
+
+// Time window constants (in minutes)
+const CHECK_IN_WINDOW_BEFORE = 30;
+const CHECK_IN_WINDOW_AFTER = 180;
+
+// ----- AUTO-CLEANUP: delete events older than 24 hours past start time -----
+async function cleanupOldEvents() {
+  try {
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const allEvents = await Event.find({}).lean();
+    const toDelete = [];
+
+    for (const ev of allEvents) {
+      const eventDateTime = getEventDateTime(ev);
+      if (eventDateTime < oneDayAgo) {
+        toDelete.push(ev._id);
+      }
+    }
+
+    if (toDelete.length > 0) {
+      await Event.deleteMany({ _id: { $in: toDelete } });
+      console.log(`🧹 Cleaned up ${toDelete.length} outdated events`);
+    }
+  } catch (err) {
+    console.error("Event cleanup error:", err);
+  }
+}
+
+// Run cleanup on startup
+cleanupOldEvents();
+// ---------------------------------------------------------------------------
+>>>>>>> Stashed changes
 
 exports.createEvent = async (req, res, next) => {
   try {
@@ -93,11 +132,22 @@ exports.createEvent = async (req, res, next) => {
 
 exports.getEvents = async (req, res, next) => {
   try {
-    const { topic, status = "upcoming", search, page = 1, limit = 10 } = req.query;
+    const { topic, status = "upcoming,ongoing", search, page = 1, limit = 10 } = req.query;
     const skip = (page - 1) * limit;
+<<<<<<< Updated upstream
     const filter = { status };
+=======
+    const statusArray = status.split(',').map(s => s.trim());
+    const filter = { status: { $in: statusArray } };
+
+>>>>>>> Stashed changes
     if (topic && topic !== "All") filter.topic = topic;
     if (search) filter.title = { $regex: search, $options: "i" };
+
+    // Safety: exclude events with a date older than 24 hours from now
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    filter.date = { $gte: oneDayAgo };
 
     const events = await Event.find(filter)
       .populate("host", "name email points badges profilePhoto _id")
@@ -106,6 +156,7 @@ exports.getEvents = async (req, res, next) => {
       .limit(parseInt(limit));
 
     const total = await Event.countDocuments(filter);
+
     if (req.user) {
       events.forEach(event => {
         event._doc.isAttending = event.isUserAttending(req.user.id);
@@ -113,6 +164,7 @@ exports.getEvents = async (req, res, next) => {
         if (event.status === "cancelled") event._doc.isCancelled = true;
       });
     }
+
     res.json({
       events,
       pagination: {
@@ -160,7 +212,12 @@ exports.joinEvent = async (req, res, next) => {
     if (eventDate < new Date()) {
       return res.status(400).json({ message: "Cannot join past events" });
     }
+<<<<<<< Updated upstream
     if (event.status !== "upcoming") {
+=======
+
+    if (event.status !== "upcoming" && event.status !== "ongoing") {
+>>>>>>> Stashed changes
       return res.status(400).json({ message: "Cannot join completed or cancelled event" });
     }
     if (event.isFull) {

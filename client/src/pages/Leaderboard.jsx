@@ -23,6 +23,8 @@ const BADGE_COLORS = {
   Dedicated: "bg-red-50 text-red-700 border-red-200"
 };
 
+const USERS_PER_PAGE = 10;
+
 export default function Leaderboard() {
   const { user } = useAuth();
   const [users, setUsers] = useState([]);
@@ -44,9 +46,15 @@ export default function Leaderboard() {
     try {
       setLoading(true);
       setError("");
+<<<<<<< Updated upstream
       const data = await leaderboardApi.getLeaderboard(page, 10);
       
       const filteredUsers = data.users?.filter(u => u.role !== "admin") || [];
+=======
+      const data = await leaderboardApi.getLeaderboard(page, USERS_PER_PAGE);
+
+      const filteredUsers = (data.users || []).filter(u => u.role !== "admin");
+>>>>>>> Stashed changes
       setUsers(filteredUsers);
       setTotalPages(data.pagination?.pages || 1);
       setTotalUsers(data.pagination?.total || 0);
@@ -65,6 +73,12 @@ export default function Leaderboard() {
     } catch (err) {
       console.error("Failed to fetch user rank:", err);
     }
+  };
+
+  const goToMyPage = () => {
+    if (!userRank?.rank) return;
+    const myPage = Math.ceil(userRank.rank / USERS_PER_PAGE);
+    setPage(myPage);
   };
 
   if (loading && users.length === 0) {
@@ -86,16 +100,33 @@ export default function Leaderboard() {
         </p>
       </div>
 
+<<<<<<< Updated upstream
+=======
+      {/* Your Ranking Card with "Show Me in the List" button */}
+>>>>>>> Stashed changes
       {user && userRank && user.role !== "admin" && (
         <Card className="mb-6 p-4 bg-blue-50/50 border border-blue-100">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
+<<<<<<< Updated upstream
               <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-sm overflow-hidden">
                 {user.profilePhoto ? (
                   <img 
                     src={`http://localhost:5000${user.profilePhoto}`} 
                     alt={user.name}
                     className="w-full h-full object-cover"
+=======
+              <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                #{userRank.rank}
+              </div>
+              <div className="flex items-center gap-3">
+                {userRank.profilePhoto && (
+                  <img
+                    src={`${API_BASE}${userRank.profilePhoto}`}
+                    alt={userRank.name}
+                    className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                    onError={(e) => { e.target.style.display = "none"; }}
+>>>>>>> Stashed changes
                   />
                 ) : (
                   <span>#{userRank.rank}</span>
@@ -108,12 +139,20 @@ export default function Leaderboard() {
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
-              {userRank.badges?.map(badge => (
-                <span key={badge} className="text-2xl" title={badge}>
-                  {BADGE_ICONS[badge]}
-                </span>
-              ))}
+            <div className="flex items-center gap-3">
+              <div className="flex gap-2">
+                {userRank.badges?.map(badge => (
+                  <span key={badge} className="text-2xl" title={badge}>
+                    {BADGE_ICONS[badge]}
+                  </span>
+                ))}
+              </div>
+              <button
+                onClick={goToMyPage}
+                className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Show Me in the List
+              </button>
             </div>
           </div>
         </Card>
@@ -138,8 +177,8 @@ export default function Leaderboard() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {users.map((userItem) => (
-                <tr 
-                  key={userItem.id} 
+                <tr
+                  key={userItem.id}
                   className={`hover:bg-gray-50 transition ${
                     user?.id === userItem.id ? 'bg-blue-50/30' : ''
                   }`}
@@ -151,8 +190,13 @@ export default function Leaderboard() {
                     <Link to={`/profile/${userItem.id}`} className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 overflow-hidden flex-shrink-0">
                         {userItem.profilePhoto ? (
+<<<<<<< Updated upstream
                           <img 
                             src={`http://localhost:5000${userItem.profilePhoto}`} 
+=======
+                          <img
+                            src={`${API_BASE}${userItem.profilePhoto}`}
+>>>>>>> Stashed changes
                             alt={userItem.name}
                             className="w-full h-full object-cover"
                           />
@@ -224,6 +268,7 @@ export default function Leaderboard() {
         )}
       </Card>
 
+      {/* Badge Legend */}
       <div className="mt-8 grid grid-cols-2 md:grid-cols-6 gap-4">
         <Card className="p-4 text-center">
           <div className="text-2xl mb-2">🌍</div>

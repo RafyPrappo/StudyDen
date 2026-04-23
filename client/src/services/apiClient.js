@@ -13,6 +13,16 @@ async function request(path, { method = "GET", headers, body, ...rest } = {}) {
       ...rest,
     });
 
+    // Handle 401 Unauthorized – token expired or invalid
+    if (res.status === 401) {
+      // Clear any cached user state (optional)
+      // Redirect to login page
+      if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+        window.location.href = "/login";
+      }
+      throw new Error("Session expired. Please log in again.");
+    }
+
     const isJson = res.headers.get("content-type")?.includes("application/json");
     const data = isJson ? await res.json().catch(() => null) : await res.text().catch(() => null);
 

@@ -11,6 +11,11 @@ const userRoutes = require("./routes/user.routes");
 const adminRoutes = require("./routes/admin.routes");
 const spotRoutes = require("./routes/spot.routes");
 const calendarRoutes = require("./routes/calendar.routes");
+<<<<<<< Updated upstream
+=======
+const barikoiRoutes = require('./routes/barikoi.routes');
+const homeRoutes = require("./routes/home.routes");
+>>>>>>> Stashed changes
 const { notFound, errorHandler } = require("./middleware/error.middleware");
 
 const app = express();
@@ -38,6 +43,11 @@ app.use("/api/events", eventRoutes);
 app.use("/api/spots", spotRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
+<<<<<<< Updated upstream
+=======
+app.use('/api/barikoi', barikoiRoutes);
+app.use("/api/home", homeRoutes);
+>>>>>>> Stashed changes
 
 app.use(notFound);
 app.use(errorHandler);

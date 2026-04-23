@@ -39,6 +39,10 @@ export default function EventsPage() {
     try {
       setLoading(true);
       setError("");
+<<<<<<< Updated upstream
+=======
+      
+>>>>>>> Stashed changes
       const params = {
         topic: selectedTopic,
         page,
@@ -47,7 +51,12 @@ export default function EventsPage() {
       if (searchQuery) params.search = searchQuery;
       const data = await eventApi.getEvents(params);
       let filteredEvents = data.events || [];
+<<<<<<< Updated upstream
       if (selectedTopic === "Joined Events" && user) {
+=======
+
+      if (selectedTopic === "My Events" && user) {
+>>>>>>> Stashed changes
         filteredEvents = filteredEvents.filter(e => e.isAttending);
       }
       setEvents(filteredEvents);
@@ -107,24 +116,28 @@ export default function EventsPage() {
         </div>
       </div>
 
-      <div className="flex justify-center gap-2 mb-10 overflow-x-auto pb-2 scrollbar-hide">
-        {TOPICS.map((topic) => (
-          <button
-            key={topic}
-            onClick={() => {
-              setSelectedTopic(topic);
-              setPage(1);
-            }}
-            className={`px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-              selectedTopic === topic
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            {topic}
-          </button>
-        ))}
+      {/* ---------- FILTER CHIPS (scrollable on mobile) ---------- */}
+      <div className="mb-10 px-4 sm:px-0">
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          {TOPICS.map((topic) => (
+            <button
+              key={topic}
+              onClick={() => {
+                setSelectedTopic(topic);
+                setPage(1);
+              }}
+              className={`px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
+                selectedTopic === topic
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              {topic}
+            </button>
+          ))}
+        </div>
       </div>
+      {/* -------------------------------------------------------- */}
 
       {error && (
         <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex items-center gap-3">

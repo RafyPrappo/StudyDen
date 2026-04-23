@@ -1,16 +1,13 @@
 const jwt = require("jsonwebtoken");
 
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+
 function signToken(payload) {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) throw new Error("JWT_SECRET missing in environment");
-  const expiresIn = process.env.JWT_EXPIRES_IN || "7d";
-  return jwt.sign(payload, secret, { expiresIn });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 }
 
 function verifyToken(token) {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) throw new Error("JWT_SECRET missing in environment");
-  return jwt.verify(token, secret);
+  return jwt.verify(token, JWT_SECRET);
 }
 
 module.exports = { signToken, verifyToken };
