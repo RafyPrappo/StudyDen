@@ -1,9 +1,12 @@
+/* ====================== IMPORTS ====================== */
 const Event = require("../models/Event");
 const Endorsement = require("../models/Endorsement");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
 const { PointsCalculator } = require("../utils/pointsCalculator");
 const { geocodeAddress } = require("../services/barikoi.service");
+
+/* ====================== HELPER FUNCTIONS ====================== */
 
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371e3;
@@ -20,7 +23,6 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-// Helper: combine event date and time into a single Date object
 function getEventDateTime(event) {
   const [hours, minutes] = event.time.split(':').map(Number);
   const dt = new Date(event.date);
@@ -28,16 +30,15 @@ function getEventDateTime(event) {
   return dt;
 }
 
-// ========== TEST VALUES – CHANGE BACK TO 30 FOR PRODUCTION ==========
-const REQUIRED_HOST_MINUTES = 1;        // 1 minute for testing
-const REQUIRED_ATTENDEE_MINUTES = 1;    // 1 minute for testing
-// ====================================================================
+/* ====================== TEST VALUES (CHANGE BACK TO 30 FOR PRODUCTION) ====================== */
+const REQUIRED_HOST_MINUTES = 1;
+const REQUIRED_ATTENDEE_MINUTES = 1;
 
-// Time window constants (in minutes)
-const CHECK_IN_WINDOW_BEFORE = 30;      // can check in up to 30 min before start
-const CHECK_IN_WINDOW_AFTER = 180;      // can check in up to 3 hours after start
+/* ====================== TIME WINDOW CONSTANTS ====================== */
+const CHECK_IN_WINDOW_BEFORE = 30;
+const CHECK_IN_WINDOW_AFTER = 180;
 
-// ----- AUTO-CLEANUP: delete events older than 24 hours past start time -----
+/* ====================== AUTO-CLEANUP ====================== */
 async function cleanupOldEvents() {
   try {
     const now = new Date();
@@ -60,11 +61,9 @@ async function cleanupOldEvents() {
     console.error("Event cleanup error:", err);
   }
 }
-
-// Run cleanup on startup
 cleanupOldEvents();
-// ---------------------------------------------------------------------------
 
+/* ====================== CREATING ====================== */
 exports.createEvent = async (req, res, next) => {
   try {
     const { title, topic, description, date, time, location, maxAttendees } = req.body;
@@ -95,19 +94,18 @@ exports.createEvent = async (req, res, next) => {
   }
 };
 
+/* ====================== LISTING EVENTS ====================== */
 exports.getEvents = async (req, res, next) => {
   try {
     const { topic, status = "upcoming,ongoing", search, page = 1, limit = 10 } = req.query;
     const skip = (page - 1) * limit;
     
-    // Allow multiple statuses (comma-separated)
     const statusArray = status.split(',').map(s => s.trim());
     const filter = { status: { $in: statusArray } };
     
     if (topic && topic !== "All") filter.topic = topic;
     if (search) filter.title = { $regex: search, $options: "i" };
 
-    // Safety: exclude events with a date older than 24 hours from now
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     filter.date = { $gte: oneDayAgo };
@@ -140,6 +138,7 @@ exports.getEvents = async (req, res, next) => {
   }
 };
 
+/* ====================== GET SINGLE EVENT ====================== */
 exports.getEvent = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -181,6 +180,7 @@ exports.getEvent = async (req, res, next) => {
   }
 };
 
+/* ====================== JOIN EVENT ====================== */
 exports.joinEvent = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -197,7 +197,6 @@ exports.joinEvent = async (req, res, next) => {
       return res.status(400).json({ message: "Cannot join past events" });
     }
 
-    // Allow joining if status is upcoming OR ongoing
     if (event.status !== "upcoming" && event.status !== "ongoing") {
       return res.status(400).json({ message: "Cannot join completed or cancelled event" });
     }
@@ -237,6 +236,7 @@ exports.joinEvent = async (req, res, next) => {
   }
 };
 
+/* ====================== LEAVE EVENT ====================== */
 exports.leaveEvent = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -304,6 +304,7 @@ exports.leaveEvent = async (req, res, next) => {
   }
 };
 
+/* ====================== TOGGLE FAVOURITE ====================== */
 exports.toggleFavorite = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -322,6 +323,7 @@ exports.toggleFavorite = async (req, res, next) => {
   }
 };
 
+/* ====================== SHARE EVENT ====================== */
 exports.shareEvent = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -335,6 +337,7 @@ exports.shareEvent = async (req, res, next) => {
   }
 };
 
+/* ====================== DELETE / CANCEL EVENT ====================== */
 exports.deleteEvent = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -404,6 +407,7 @@ exports.deleteEvent = async (req, res, next) => {
   }
 };
 
+/* ====================== COMPLETE EVENT ====================== */
 exports.completeEvent = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -458,6 +462,7 @@ exports.completeEvent = async (req, res, next) => {
   }
 };
 
+/* ====================== LOCATION TRACKING ====================== */
 exports.trackLocation = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -469,7 +474,6 @@ exports.trackLocation = async (req, res, next) => {
     const eventDateTime = getEventDateTime(event);
     const minutesDiff = (now - eventDateTime) / (1000 * 60);
 
-    // Check if within allowed tracking window
     if (minutesDiff < -CHECK_IN_WINDOW_BEFORE) {
       return res.status(400).json({ 
         message: `Cannot check in more than ${CHECK_IN_WINDOW_BEFORE} minutes before event start.` 
@@ -508,18 +512,15 @@ exports.trackLocation = async (req, res, next) => {
     if (event.attendees.includes(req.user.id)) {
       const timer = event.getTimerForUser(req.user.id);
       
-      // Only allow time accrual after event has started
       const canAccrueTime = now >= eventDateTime;
       
       if (event.status === "ongoing" && event.hostPresent) {
         if (isWithinRadius) {
-          // Mark as present immediately (so they appear in attendeesPresent)
           if (!timer.present) {
             timer.present = true;
             if (!event.attendeesPresent.includes(req.user.id)) event.attendeesPresent.push(req.user.id);
           }
           
-          // Only start the timer if event has actually started
           if (canAccrueTime) {
             if (!timer.joinedAt) {
               timer.joinedAt = now;
@@ -581,7 +582,6 @@ exports.trackLocation = async (req, res, next) => {
               }
             }
           } else {
-            // Event hasn't started yet; ensure timer is not running
             timer.joinedAt = null;
           }
         } else {
@@ -616,6 +616,7 @@ exports.trackLocation = async (req, res, next) => {
   }
 };
 
+/* ====================== GET EVENT STATUS ====================== */
 exports.getEventStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -650,6 +651,7 @@ exports.getEventStatus = async (req, res, next) => {
   }
 };
 
+/* ====================== MARK ATTENDANCE ====================== */
 exports.markAttendance = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -673,6 +675,7 @@ exports.markAttendance = async (req, res, next) => {
   }
 };
 
+/* ====================== SUBMIT ENDORSEMENT ====================== */
 exports.submitEndorsement = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -682,7 +685,6 @@ exports.submitEndorsement = async (req, res, next) => {
     if (event.status !== "completed") {
       return res.status(400).json({ message: "Event not completed yet" });
     }
-    // Only attendees who completed the required time can endorse
     if (!event.attendeesCompleted.includes(req.user.id)) {
       return res.status(400).json({ message: "You must complete the required attendance time to endorse" });
     }
@@ -767,6 +769,7 @@ exports.submitEndorsement = async (req, res, next) => {
   }
 };
 
+/* ====================== MY EVENTS ====================== */
 exports.getMyEvents = async (req, res, next) => {
   try {
     const events = await Event.find({ attendees: req.user.id })
@@ -781,6 +784,7 @@ exports.getMyEvents = async (req, res, next) => {
   }
 };
 
+/* ====================== HOSTED EVENTS ====================== */
 exports.getHostedEvents = async (req, res, next) => {
   try {
     const events = await Event.find({ host: req.user.id })
@@ -792,6 +796,7 @@ exports.getHostedEvents = async (req, res, next) => {
   }
 };
 
+/* ====================== REMOVE CALENDAR EVENT ====================== */
 exports.removeCalendarEvent = async (req, res, next) => {
   try {
     const { id } = req.params;

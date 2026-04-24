@@ -1,129 +1,415 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "../../context/AuthContext";
+import { useEffect, useState } from "react";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
 import { spotApi } from "../../services/spot";
 import { Loader2, Star, Sparkles, ThumbsUp, ThumbsDown, Clock3 } from "lucide-react";
 
-const amenityIcons = { /* same as before if any */ };
-
-export default function SpotReviewsCard({ spotId, canReview, amenities, analytics }) {
-  const { user } = useAuth();
+export default function SpotReviewsCard({
+  spotId,
+  canReview = true,
+  amenities = [],
+  analytics = null,
+}) {
   const [reviews, setReviews] = useState([]);
-  const [summary, setSummary] = useState(null);
-  const [aiSummary, setAiSummary] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [reviewText, setReviewText] = useState("");
+  const [summary, setSummary] = useState({ averageRating: 0, totalReviews: 0 });
+  const [myReview, setMyReview] = useState(null);
+
   const [rating, setRating] = useState(0);
-  const [submitting, setSubmitting] = useState(false);
-  const [availableAmenities, setAvailableAmenities] = useState([]);
+  const [reviewText, setReviewText] = useState("");
+  const [selectedAmenities, setSelectedAmenities] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [saveMessage, setSaveMessage] = useState("");
+  const [editingReview, setEditingReview] = useState(false);
 
-  useEffect(() => {
-    fetchReviews();
-  }, [spotId]);
+  const [aiLoading, setAiLoading] = useState(true);
+  const [aiError, setAiError] = useState("");
+  const [aiData, setAiData] = useState(null);
 
-  const fetchReviews = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      const data = await spotApi.getReviews(spotId);
-      setReviews(data.reviews || []);
-      setSummary(data.summary || null);
+      setError("");
+      setSaveMessage("");
+
+      const [reviewsData, myReviewData] = await Promise.all([
+        spotApi.getReviews(spotId),
+        canReview
+          ? spotApi.getMyReview(spotId).catch(() => ({ review: null }))
+          : Promise.resolve({ review: null }),
+      ]);
+
+      setReviews(reviewsData.reviews || []);
+      setSummary(reviewsData.summary || { averageRating: 0, totalReviews: 0 });
+
+      const existingReview = myReviewData.review || null;
+      setMyReview(existingReview);
+      setEditingReview(!existingReview);
+
+      if (existingReview) {
+        setRating(existingReview.rating || 0);
+        setReviewText(existingReview.reviewText || "");
+        setSelectedAmenities(existingReview.availableAmenities || []);
+      } else {
+        setRating(0);
+        setReviewText("");
+        setSelectedAmenities([]);
+      }
     } catch (err) {
-      console.error(err);
-    } finally { setLoading(false); }
+      setError(err.message || "Failed to load reviews");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadAISummary = async () => {
+    try {
+      setAiLoading(true);
+      setAiError("");
+
+      const data = await spotApi.getAISummary(spotId);
+      setAiData(data || null);
+    } catch (err) {
+      setAiError(err.message || "Failed to load AI summary");
+      setAiData(null);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!spotId) return;
+    loadData();
+    loadAISummary();
+  }, [spotId, canReview]);
+
+  const toggleAmenity = (amenity) => {
+    setSelectedAmenities((prev) =>
+      prev.includes(amenity)
+        ? prev.filter((item) => item !== amenity)
+        : [...prev, amenity]
+    );
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!rating) return setError("Please select a rating");
-    setSubmitting(true);
-    setError("");
+
+    if (!rating) {
+      setError("Please select a rating");
+      return;
+    }
+
     try {
-      await spotApi.saveReview(spotId, { rating, reviewText, availableAmenities });
-      setReviewText("");
-      setRating(0);
-      setAvailableAmenities([]);
-      fetchReviews();
+      setSaving(true);
+      setError("");
+      setSaveMessage("");
+
+      await spotApi.saveReview(spotId, {
+        rating,
+        reviewText,
+        availableAmenities: selectedAmenities,
+      });
+
+      await loadData();
+      await loadAISummary();
+
+      setSaveMessage("Review saved successfully");
+      setEditingReview(false);
     } catch (err) {
       setError(err.message || "Failed to save review");
-    } finally { setSubmitting(false); }
+    } finally {
+      setSaving(false);
+    }
   };
-
-  const toggleAmenity = (a) => {
-    setAvailableAmenities((prev) =>
-      prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a]
-    );
-  };
-
-  if (loading) {
-    return <Card className="p-6"><div className="flex justify-center py-8"><Loader2 className="animate-spin" /></div></Card>;
-  }
 
   return (
-    <Card className="p-6">
-      <h3 className="text-lg font-semibold mb-4">Reviews</h3>
+    <Card className="p-5 h-fit">
+      <div className="mb-5">
+        <h3 className="text-lg font-semibold text-gray-900">Reviews & Ratings</h3>
+        <p className="text-sm text-gray-500 mt-1">
+          See what other students reported about this spot.
+        </p>
+      </div>
 
-      {summary && (
-        <div className="flex items-center gap-2 mb-4 text-sm">
-          <Star size={18} className="text-amber-500" fill="currentColor" />
-          <span className="font-bold text-gray-800">{summary.averageRating}</span>
-          <span className="text-gray-500">({summary.totalReviews} review{summary.totalReviews !== 1 ? "s" : ""})</span>
+      {loading ? (
+        <div className="flex justify-center py-10">
+          <Loader2 className="animate-spin text-blue-600" size={28} />
         </div>
-      )}
-
-      {canReview && (
-        <form onSubmit={handleSubmit} className="mb-6 border-b pb-6">
-          <div className="flex gap-1 mb-3">
-            {[1,2,3,4,5].map((i) => (
-              <button type="button" key={i} onClick={() => setRating(i)}
-                className={`p-1 ${i <= rating ? "text-amber-500" : "text-gray-300"}`}>
-                <Star size={22} fill={i <= rating ? "currentColor" : "none"} />
-              </button>
-            ))}
-          </div>
-          <textarea rows={3} value={reviewText} onChange={(e) => setReviewText(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg p-3 mb-3"
-            placeholder="Share your experience..." />
-          <div className="flex flex-wrap gap-2 mb-3">
-            {(amenities || []).map((a) => (
-              <button type="button" key={a} onClick={() => toggleAmenity(a)}
-                className={`px-3 py-1 rounded-full text-xs font-medium border ${availableAmenities.includes(a) ? "bg-blue-50 border-blue-300 text-blue-700" : "bg-gray-50 border-gray-200 text-gray-600"}`}>
-                {a}
-              </button>
-            ))}
-          </div>
-          {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
-          <Button type="submit" disabled={submitting}>{submitting ? "Saving..." : "Submit Review"}</Button>
-        </form>
-      )}
-
-      {reviews.length === 0 ? (
-        <p className="text-sm text-gray-500">No reviews yet.</p>
       ) : (
-        <div className="space-y-4">
-          {reviews.map((r) => (
-            <div key={r._id} className="border-b pb-4 last:border-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-medium text-gray-800">{r.user?.name || "Anonymous"}</span>
-                <div className="flex gap-0.5">
-                  {[1,2,3,4,5].map((i) => (
-                    <Star key={i} size={12} className={i <= r.rating ? "text-amber-500" : "text-gray-300"} fill={i <= r.rating ? "currentColor" : "none"} />
+        <>
+          <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center gap-3">
+              <div className="text-3xl font-bold text-gray-900">
+                {summary.averageRating || 0}
+              </div>
+              <div>
+                <div className="flex items-center gap-1 text-yellow-500">
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <Star
+                      key={index}
+                      size={16}
+                      fill={
+                        index < Math.round(summary.averageRating)
+                          ? "currentColor"
+                          : "none"
+                      }
+                    />
                   ))}
                 </div>
-                <span className="text-xs text-gray-400 ml-auto">{new Date(r.createdAt).toLocaleDateString()}</span>
+                <p className="text-sm text-gray-500 mt-1">
+                  {summary.totalReviews} review{summary.totalReviews === 1 ? "" : "s"}
+                </p>
               </div>
-              {r.reviewText && <p className="text-sm text-gray-600">{r.reviewText}</p>}
-              {r.availableAmenities?.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {r.availableAmenities.map((a) => (
-                    <span key={a} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">{a}</span>
-                  ))}
+            </div>
+          </div>
+
+          <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles size={18} className="text-blue-600" />
+              <h4 className="text-sm font-semibold text-gray-900">
+                AI Review Summary
+              </h4>
+            </div>
+
+            {aiLoading ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Loader2 size={16} className="animate-spin text-blue-600" />
+                Generating summary...
+              </div>
+            ) : aiError ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {aiError}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-700 leading-6">
+                    {aiData?.summary || "No AI summary available yet."}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock3 size={16} className="text-gray-600" />
+                    <h5 className="text-sm font-semibold text-gray-900">
+                      Best Time to Visit
+                    </h5>
+                  </div>
+                  <p className="text-sm text-gray-700">
+                    {analytics?.peakHour?.label
+                      ? `${analytics.peakHour.label}`
+                      : "Not enough check-in data yet."}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <ThumbsUp size={16} className="text-green-700" />
+                      <h5 className="text-sm font-semibold text-green-900">
+                        Pros
+                      </h5>
+                    </div>
+
+                    {aiData?.pros?.length > 0 ? (
+                      <ul className="space-y-2 text-sm text-green-900 list-disc pl-5">
+                        {aiData.pros.map((item, index) => (
+                          <li key={`${item}-${index}`}>{item}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-green-900">
+                        No clear pros found yet.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <ThumbsDown size={16} className="text-red-700" />
+                      <h5 className="text-sm font-semibold text-red-900">
+                        Cons
+                      </h5>
+                    </div>
+
+                    {aiData?.cons?.length > 0 ? (
+                      <ul className="space-y-2 text-sm text-red-900 list-disc pl-5">
+                        {aiData.cons.map((item, index) => (
+                          <li key={`${item}-${index}`}>{item}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-red-900">
+                        No clear cons found yet.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {myReview && !editingReview && (
+            <div className="mb-6">
+              <Button onClick={() => setEditingReview(true)}>
+                Update Review
+              </Button>
+            </div>
+          )}
+
+          {canReview && (editingReview || !myReview) && (
+            <form onSubmit={handleSubmit} className="mb-6 border-b border-slate-200 pb-6">
+              <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                {myReview ? "Update your review" : "Leave a review"}
+              </h4>
+
+              <div className="mb-4">
+                <p className="text-sm text-gray-700 mb-2">Your rating</p>
+                <div className="flex items-center gap-2">
+                  {Array.from({ length: 5 }).map((_, index) => {
+                    const value = index + 1;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setRating(value)}
+                        className="text-yellow-500"
+                      >
+                        <Star
+                          size={20}
+                          fill={value <= rating ? "currentColor" : "none"}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {amenities.length > 0 && (
+                <div className="mb-4">
+                  <label className="block text-sm text-gray-700 mb-2">
+                    Available amenities you noticed
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {amenities.map((amenity) => (
+                      <button
+                        key={amenity}
+                        type="button"
+                        onClick={() => toggleAmenity(amenity)}
+                        className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${
+                          selectedAmenities.includes(amenity)
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                        }`}
+                      >
+                        {amenity}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
-            </div>
-          ))}
-        </div>
+
+              <div className="mb-4">
+                <label className="block text-sm text-gray-700 mb-2">
+                  Review
+                </label>
+                <textarea
+                  rows={4}
+                  value={reviewText}
+                  onChange={(e) => setReviewText(e.target.value)}
+                  placeholder="Share your experience with this study spot..."
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              {error && (
+                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+
+              {saveMessage && (
+                <div className="mb-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                  {saveMessage}
+                </div>
+              )}
+
+              {!myReview ? (
+                <Button type="submit" disabled={saving}>
+                  {saving ? <Loader2 size={16} className="animate-spin" /> : null}
+                  Submit Review
+                </Button>
+              ) : (
+                <div className="flex gap-3">
+                  <Button type="submit" disabled={saving}>
+                    {saving ? <Loader2 size={16} className="animate-spin" /> : null}
+                    Update Review
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setEditingReview(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+            </form>
+          )}
+
+          <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
+            {reviews.length === 0 ? (
+              <p className="text-sm text-gray-500">No reviews yet.</p>
+            ) : (
+              reviews.map((review) => (
+                <div
+                  key={review._id}
+                  className="rounded-xl border border-slate-200 p-4 bg-white"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {review.user?.name || "Unknown"}
+                      </p>
+                      <div className="flex items-center gap-1 text-yellow-500 mt-1">
+                        {Array.from({ length: 5 }).map((_, index) => (
+                          <Star
+                            key={index}
+                            size={14}
+                            fill={index < review.rating ? "currentColor" : "none"}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <span className="text-xs text-gray-400">
+                      {new Date(review.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+
+                  {review.reviewText ? (
+                    <p className="text-sm text-gray-600 mb-3">{review.reviewText}</p>
+                  ) : null}
+
+                  {review.availableAmenities?.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {review.availableAmenities.map((amenity) => (
+                        <span
+                          key={amenity}
+                          className="px-2.5 py-1 rounded-full text-xs bg-slate-100 text-slate-700 border border-slate-200"
+                        >
+                          {amenity}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ))
+            )}
+          </div>
+        </>
       )}
     </Card>
   );

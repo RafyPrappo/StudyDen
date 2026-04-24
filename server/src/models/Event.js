@@ -1,79 +1,50 @@
 const mongoose = require("mongoose");
 
+/* ====================== EVENT SCHEMA DEFINITION ====================== */
 const eventSchema = new mongoose.Schema(
   {
-    title: { 
-      type: String, 
-      required: true, 
-      trim: true, 
-      maxlength: 100 
-    },
-    topic: { 
-      type: String, 
-      required: true,
-      enum: ["Design", "Development", "Academic", "Nature", "Other"]
-    },
-    description: { 
-      type: String, 
-      trim: true, 
-      maxlength: 500 
-    },
-    date: { 
-      type: Date, 
-      required: true 
-    },
-    time: { 
-      type: String, 
-      required: true 
-    },
-    location: { 
-      type: String, 
-      required: true 
-    },
+    /* ---------- BASIC INFO ---------- */
+    title: { type: String, required: true, trim: true, maxlength: 100 },
+    topic: { type: String, required: true, enum: ["Design", "Development", "Academic", "Nature", "Other"] },
+    description: { type: String, trim: true, maxlength: 500 },
+
+    /* ---------- DATE & TIME ---------- */
+    date: { type: Date, required: true },
+    time: { type: String, required: true },           // "14:30"
+
+    /* ---------- LOCATION ---------- */
+    location: { type: String, required: true },
     coordinates: {
       lat: { type: Number, required: true },
       lng: { type: Number, required: true }
     },
-    radius: { type: Number, default: 100 },
+    radius: { type: Number, default: 100 },            // meters
     placeId: { type: String },
     formattedAddress: { type: String },
-    maxAttendees: { 
-      type: Number, 
-      required: true, 
-      min: 2, 
-      max: 100 
-    },
-    host: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true
-    },
-    attendees: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User"
-    }],
-    attendeesPresent: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User"
-    }],
-    attendeesCompleted: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User"
-    }],
-    favorites: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User"
-    }],
-    status: {
-      type: String,
-      enum: ["upcoming", "ongoing", "completed", "cancelled"],
-      default: "upcoming"
-    },
+
+    /* ---------- ATTENDANCE LIMITS ---------- */
+    maxAttendees: { type: Number, required: true, min: 2, max: 100 },
+
+    /* ---------- HOST ---------- */
+    host: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+
+    /* ---------- ATTENDEES ---------- */
+    attendees: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    attendeesPresent: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    attendeesCompleted: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+
+    /* ---------- FAVOURITES ---------- */
+    favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+
+    /* ---------- LIFECYCLE STATUS ---------- */
+    status: { type: String, enum: ["upcoming", "ongoing", "completed", "cancelled"], default: "upcoming" },
     startedAt: { type: Date },
     endedAt: { type: Date },
     hostPresent: { type: Boolean, default: false },
     hostLastSeen: { type: Date },
     hostCompleted: { type: Boolean, default: false },
+
+    /* ---------- ATTENDEE TRACKING ---------- */
     attendeeTimers: {
       type: Map,
       of: new mongoose.Schema({
@@ -87,62 +58,68 @@ const eventSchema = new mongoose.Schema(
       }, { _id: false }),
       default: {}
     },
-    endorsement: {
-      type: Number,
-      default: 0
-    },
-    isSuccessful: {
-      type: Boolean,
-      default: false
-    },
-    shareCount: {
-      type: Number,
-      default: 0
-    },
+
+    /* ---------- ENDORSEMENTS ---------- */
+    endorsement: { type: Number, default: 0 },          // percentage
+    isSuccessful: { type: Boolean, default: false },
+
+    /* ---------- SHARING ---------- */
+    shareCount: { type: Number, default: 0 },
+
+    /* ---------- CANCELLATION ---------- */
     cancelledAt: { type: Date },
+
+    /* ---------- POINTS AWARDED FLAGS ---------- */
     pointsAwarded: { type: Boolean, default: false },
     hostPointsAwarded: { type: Boolean, default: false },
 
-    userCalendarEvents: { type: Map,of: String,default: {}},
-    calendarLink: { type: String, default: '' },
-    syncedToCalendar: { type: Boolean, default: false }
+    /* ---------- GOOGLE CALENDAR SYNC ---------- */
+    userCalendarEvents: { type: Map, of: String, default: {} },
+    calendarLink: { type: String, default: "" },
+    syncedToCalendar: { type: Boolean, default: false },
+
+    /* ---------- SPAM REPORTING (NEW) ---------- */
+    spamReportCount: { type: Number, default: 0 },
+    spamReportedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
   },
-  { timestamps: true }
+  { timestamps: true }          // automatically adds createdAt and updatedAt
 );
 
-eventSchema.virtual("spotsFilled").get(function() {
+/* ====================== VIRTUAL PROPERTIES ====================== */
+eventSchema.virtual("spotsFilled").get(function () {
   return this.attendees.length;
 });
 
-eventSchema.virtual("spotsRemaining").get(function() {
+eventSchema.virtual("spotsRemaining").get(function () {
   return this.maxAttendees - this.attendees.length;
 });
 
-eventSchema.virtual("isFull").get(function() {
+eventSchema.virtual("isFull").get(function () {
   return this.attendees.length >= this.maxAttendees;
 });
 
-eventSchema.virtual("spotsText").get(function() {
+eventSchema.virtual("spotsText").get(function () {
   return `${this.attendees.length}/${this.maxAttendees} spots filled`;
 });
 
-eventSchema.methods.isUserAttending = function(userId) {
+/* ====================== INSTANCE METHODS ====================== */
+eventSchema.methods.isUserAttending = function (userId) {
   return this.attendees.some(id => id.toString() === userId.toString());
 };
 
-eventSchema.methods.isUserPresent = function(userId) {
+eventSchema.methods.isUserPresent = function (userId) {
   return this.attendeesPresent.some(id => id.toString() === userId.toString());
 };
 
-eventSchema.methods.isUserCompleted = function(userId) {
+eventSchema.methods.isUserCompleted = function (userId) {
   return this.attendeesCompleted.some(id => id.toString() === userId.toString());
 };
 
-eventSchema.methods.isUserFavorited = function(userId) {
+eventSchema.methods.isUserFavorited = function (userId) {
   return this.favorites.some(id => id.toString() === userId.toString());
 };
 
-eventSchema.methods.getTimerForUser = function(userId) {
+eventSchema.methods.getTimerForUser = function (userId) {
   return this.attendeeTimers.get(userId.toString()) || {
     joinedAt: null,
     lastSeenAt: null,
@@ -154,4 +131,5 @@ eventSchema.methods.getTimerForUser = function(userId) {
   };
 };
 
+/* ====================== EXPORT ====================== */
 module.exports = mongoose.model("Event", eventSchema);
